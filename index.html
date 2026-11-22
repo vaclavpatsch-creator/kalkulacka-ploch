@@ -1,0 +1,2754 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stavební kalkulačka – verze 1.2.65</title>
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#172033;background:#f3f6fa}
+*{box-sizing:border-box}body{margin:0;padding:16px}main{max-width:1100px;margin:auto}
+h1{font-size:1.5rem;margin:8px 0}h2{font-size:1.12rem;margin:0 0 12px}
+p{color:#526078;line-height:1.45}
+.panel{background:#fff;border:1px solid #dce3ed;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 3px 12px #15294b0a}
+button{border:0;border-radius:8px;padding:12px 15px;background:#245fc0;color:#fff;font-weight:bold;cursor:pointer;margin:3px}
+button.secondary{background:#e8eef7;color:#1e3b64}button.danger{background:#a83434}
+.toolbar{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+svg{width:100%;height:auto;min-height:280px;display:block;background:#fbfdff;border:1px solid #dce3ed;border-radius:10px;touch-action:none;-webkit-user-select:none;user-select:none}
+.gridline{stroke:#e8edf4;stroke-width:1}.poly{fill:#e7f0ff;stroke:#2463c5;stroke-width:3;stroke-linejoin:round}.edge{stroke:#2463c5;stroke-width:3}.edge.problem{stroke:#dc2626;stroke-width:4.5;stroke-dasharray:7 3}.vertex{fill:#18834b;stroke:white;stroke-width:1.5;cursor:grab}.vertex.selected{fill:#e08b20}.vlabel{font:bold 13px Arial;fill:#174b96;paint-order:stroke;stroke:white;stroke-width:4px;stroke-linejoin:round}.slabel{font:bold 13px Arial;fill:#174b96;paint-order:stroke;stroke:white;stroke-width:4px;stroke-linejoin:round}
+.dlabel{font:bold 12px Arial;fill:#b45309;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round;cursor:pointer;pointer-events:all}.live-dlabel{font:bold 14px Arial;fill:#0f766e;paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round}.live-dim-line{stroke:#0f766e;stroke-width:1.8;stroke-dasharray:4 2;fill:none}.live-dim-ext{stroke:#0f766e;stroke-width:1;opacity:.8}.drag-angle-overlay{pointer-events:none}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #e6ebf2;font-size:.92rem}
+input{width:100%;padding:8px;border:1px solid #bdc9d8;border-radius:7px;font-size:1rem}
+.coord{max-width:110px}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:#f5f8fc;border-radius:10px;padding:12px}.metric span{display:block;color:#64748b;font-size:.85rem}.metric strong{display:block;font-size:1.4rem;margin-top:5px}
+.status{padding:12px;border-radius:9px;background:#e8f6ed;color:#17643a;font-weight:bold;margin-top:10px}.bad{background:#fff0ed;color:#a12b1c}
+.small{font-size:.85rem}.muted{color:#64748b}
+@media(max-width:650px){body{padding:9px}.metrics{grid-template-columns:1fr}.coord{max-width:80px}}
+@page{size:A4 portrait;margin:12mm}
+@media print{
+ html,body{background:#fff!important;color:#111!important;padding:0!important;margin:0!important}
+ main{max-width:none!important;width:100%!important}
+ .panel{box-shadow:none!important;break-inside:avoid-page;border:1px solid #bbb;margin:0 0 8mm;padding:10px}
+ button,select,input, .toolbar, #zoomReadout, #hint, #downloadFallback,
+ #dimensionEditOverlay, #projectDialogOverlay, #angleEditOverlay, #loupe, .smart-drawing{display:none!important}
+ svg{max-height:150mm!important;min-height:0!important;border:1px solid #aaa;overflow:visible}
+ h1{font-size:20pt;margin:0 0 6mm}h2{font-size:13pt}
+ table{font-size:9pt}th,td{font-size:9pt;padding:5px}
+ .metrics{grid-template-columns:repeat(3,1fr)}
+ .status{border:1px solid #aaa;background:#fff!important;color:#111!important}
+}
+
+.dimension-edit-overlay{position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.38);display:flex;align-items:center;justify-content:center;padding:16px}
+.dimension-edit-overlay[hidden]{display:none!important}
+.dimension-edit-dialog{width:min(360px,100%);background:#fff;border-radius:14px;padding:20px;box-shadow:0 16px 48px rgba(15,23,42,.28);color:#172033}
+.dimension-edit-dialog h3{margin:0 0 14px;font-size:1.15rem}
+.dimension-edit-dialog label{display:block;font-weight:600;margin-bottom:7px}
+.dimension-edit-dialog input{width:100%;font-size:1.25rem;padding:11px;border:1px solid #94a3b8;border-radius:8px}
+.dimension-edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.dimension-edit-error{color:#b91c1c;min-height:20px;font-size:.88rem;margin-top:5px}
+#projectDialogMessage{color:#526078;line-height:1.45;margin:0 0 12px}
+#projectDialogInput[hidden]{display:none!important}
+
+/* Výrazná a kontextová akce pro uzavření půdorysu */
+.close-shape-dock{
+ display:flex;align-items:center;justify-content:space-between;gap:18px;
+ margin:12px 0 10px;padding:15px 17px;border:2px solid #d7e4ed;border-radius:15px;
+ background:linear-gradient(110deg,#f2f7fb,#edf5f8);transition:background .18s,border-color .18s,box-shadow .18s;
+}
+.close-shape-copy{display:flex;flex-direction:column;gap:5px;min-width:0}
+.close-shape-copy strong{font-size:.86rem;letter-spacing:.07em;color:#234864}
+.close-shape-copy span{font-size:.92rem;line-height:1.35;color:#526b80}
+.close-shape-button{
+ flex:0 0 auto;min-width:225px;min-height:54px;margin:0;padding:14px 22px;
+ border:0;border-radius:12px;background:linear-gradient(135deg,#0c806d,#0d9c83);
+ color:#fff;font-size:1rem;font-weight:850;letter-spacing:.035em;
+ box-shadow:0 5px 14px rgba(13,128,109,.24);cursor:pointer;
+}
+.close-shape-button:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-1px)}
+.close-shape-button:focus-visible{outline:4px solid #20b99b55;outline-offset:3px}
+.close-shape-button:disabled{cursor:default;box-shadow:none;transform:none}
+.close-shape-dock.waiting{background:#f4f7fa;border-color:#dbe4ec}
+.close-shape-dock.waiting .close-shape-button{background:#b9c7d2;color:#40566a}
+.close-shape-dock.ready{background:linear-gradient(110deg,#e8f8f4,#f2fbf8);border-color:#79cbbb;box-shadow:0 4px 16px rgba(20,130,112,.09)}
+.close-shape-dock.ready .close-shape-copy strong{color:#087765}
+.close-shape-dock.ready .close-shape-copy span{color:#245b55}
+.close-shape-dock.done{background:#eaf7ef;border-color:#9bd3ae}
+.close-shape-dock.done .close-shape-copy strong{color:#17643a}
+.close-shape-dock.done .close-shape-button{background:#d7eee0;color:#17643a;border:1px solid #a8d7b8}
+@media(max-width:650px){
+ .close-shape-dock{flex-direction:column;align-items:stretch;gap:11px;padding:13px}
+ .close-shape-button{width:100%;min-width:0;min-height:58px;font-size:1.03rem}
+}
+@media print{.close-shape-dock{display:none!important}}
+
+</style>
+<style>
+:root{font-family:Inter,"Segoe UI",Arial,sans-serif;color:#17263b;background:#edf2f8}
+body{padding:24px;background:linear-gradient(145deg,#edf3fa 0%,#f6f8fb 48%,#e9f0f7 100%)}
+main{max-width:1180px}
+.brandbar{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:18px;padding:24px 26px;margin:0 0 18px;border-radius:20px;background:linear-gradient(115deg,#102a43,#174a70 62%,#176b78);color:#fff;box-shadow:0 14px 32px rgba(18,47,76,.18);overflow:hidden}
+.brandbar:after{content:"";position:absolute;width:270px;height:270px;border:1px solid #ffffff20;border-radius:50%;right:4%;top:-175px;box-shadow:0 0 0 28px #ffffff08,0 0 0 58px #ffffff06}
+.brandmark{width:54px;height:54px;flex:0 0 54px;border:1px solid #ffffff55;border-radius:15px;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:9px;transform:rotate(-4deg)}
+.brandmark span{background:#55d6c2;border-radius:3px}.brandmark span:nth-child(2){opacity:.65}.brandmark span:nth-child(3){opacity:.8}.brandmark span:nth-child(4){background:#f5b95c}
+.brand-kicker{font-size:.68rem;letter-spacing:.17em;font-weight:800;color:#8fe4d9;margin-bottom:4px}
+.brandbar h1{font-size:clamp(1.65rem,3vw,2.25rem);letter-spacing:-.035em;margin:0;color:white}
+.brand-subtitle{font-size:.88rem;color:#d6e5f1;margin-top:5px}
+.brand-version{margin-left:auto;align-self:flex-start;position:relative;z-index:1;border:1px solid #ffffff40;border-radius:999px;padding:7px 11px;font-size:.67rem;letter-spacing:.1em;color:#e3f3f6;white-space:nowrap}
+.intro-lead{font-weight:700;color:#244663;font-size:1.05rem;margin:0 0 4px}
+body>main>p{max-width:920px}
+.panel{border:1px solid #d9e3ed;border-radius:17px;padding:20px;margin:16px 0;background:rgba(255,255,255,.96);box-shadow:0 5px 20px rgba(24,54,84,.055)}
+.panel h2{display:flex;align-items:center;gap:10px;color:#183b59;font-size:1.12rem;padding-bottom:12px;border-bottom:1px solid #e8eef4}
+.panel h2:before{content:"";width:5px;height:22px;border-radius:5px;background:linear-gradient(#24b6a4,#2876b8);display:inline-block}
+button{border-radius:9px;padding:10px 14px;background:#176b83;box-shadow:0 2px 5px #123c5717;transition:transform .15s,filter .15s}
+button:hover{filter:brightness(1.07);transform:translateY(-1px)}
+button.secondary{background:#eaf1f7;color:#234864;border:1px solid #d5e1eb;box-shadow:none}
+button.danger{background:#a94343}
+.toolbar{gap:7px}
+input,select{border:1px solid #cbd8e4!important;border-radius:9px!important;background:#fff}
+input:focus,select:focus{outline:3px solid #21a89a30;border-color:#1a9d91!important}
+.metric{background:linear-gradient(145deg,#f2f7fb,#eaf2f8);border:1px solid #e0eaf1;border-radius:12px}
+.metric strong{color:#145b70}
+.metrics.single-metric{grid-template-columns:minmax(150px,220px)}
+.measurement-center{pointer-events:all;cursor:grab;touch-action:none}.measurement-center:active{cursor:grabbing}
+.status{background:#e5f5f0;color:#12634f}
+svg{background-color:#fbfdff;border-color:#d5e1eb;border-radius:12px}
+table th{background:#edf3f8;color:#254761}
+@media(max-width:650px){body{padding:10px}.brandbar{padding:17px;gap:12px}.brandmark{width:42px;height:42px;flex-basis:42px;padding:7px}.brand-version{display:none}.brand-subtitle{font-size:.75rem}.panel{padding:14px}}
+@media print{body{background:white!important}.brandbar{background:#173b59!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.brand-version{display:none}}
+
+.shape-dialog{width:min(760px,100%);max-height:92vh;overflow:auto}
+.shape-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,.85fr);gap:16px;align-items:start}
+.shape-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.shape-field{display:flex;flex-direction:column;gap:5px;font-size:.9rem;font-weight:650;color:#27445e}
+.shape-field input,.shape-field select{width:100%;min-width:0;padding:10px;font-size:1rem}
+.shape-preview{background:#f4f8fb;border:1px solid #dce7ef;border-radius:12px;padding:12px}
+.shape-preview svg{width:100%;height:190px;min-height:190px;background:#fff;border:1px solid #dce7ef;border-radius:8px}
+.shape-preview-caption{font-size:.82rem;color:#64748b;margin-top:8px;line-height:1.4}
+.shape-check{display:flex;align-items:center;gap:8px;font-size:.9rem;color:#27445e;margin:12px 0}
+.shape-check input{width:auto}
+@media(max-width:650px){.shape-layout{grid-template-columns:1fr}.shape-preview svg{height:160px;min-height:160px}.shape-fields{grid-template-columns:1fr 1fr}.shape-dialog{padding:16px}}
+
+</style>
+
+<style>
+.pdf-import-panel .pdf-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:10px 0}
+.pdf-import-panel .pdf-field{display:flex;flex-direction:column;gap:5px;font-size:.86rem;font-weight:650;color:#254761}
+.pdf-import-panel .pdf-field input,.pdf-import-panel .pdf-field select{padding:9px;min-width:110px}
+.pdf-canvas-wrap{position:relative;max-height:78vh;min-height:360px;overflow:auto;background:#e8eef4;border:1px solid #ccd8e4;border-radius:12px;padding:8px;overscroll-behavior:contain;scrollbar-gutter:stable;touch-action:pan-x pan-y}
+#pdfPageCanvas{display:block;width:100%;height:auto;max-width:none;background:#fff;box-shadow:0 2px 12px #142b451c;user-select:none;-webkit-user-drag:none}
+#pdfOverlayCanvas{position:absolute;left:8px;top:8px;pointer-events:none;max-width:none}
+.pdf-status{padding:10px 12px;border-radius:9px;background:#edf4fa;color:#31536e;font-size:.9rem;margin:9px 0}
+.pdf-status.good{background:#e7f6ef;color:#176443}.pdf-status.warn{background:#fff5e5;color:#8a5410}.pdf-status.bad{background:#fff0ed;color:#a12b1c}
+.pdf-room-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:10px}
+.pdf-room-item{border:1px solid #d8e2ec;border-radius:10px;padding:10px;background:#fff;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.pdf-room-item.active{border:2px solid #138778;background:#f0faf8}
+.pdf-room-item button{padding:7px 10px;font-size:.82rem}
+.pdf-help{font-size:.86rem;line-height:1.45;color:#5b6c7d}
+.pdf-cal-point{color:#176b83;font-weight:700}
+.pdf-cal-tools{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+#pdfCanvasWrap.pdf-calibrating{cursor:crosshair}
+#pdfCanvasWrap.pdf-calibrating #pdfPageCanvas{cursor:crosshair}
+#pdfEditCalPoint1.is-active,#pdfEditCalPoint2.is-active{background:#087e70;color:#fff;border:1px solid #087e70}
+
+@media(max-width:650px){.pdf-canvas-wrap{max-height:70vh;min-height:300px;padding:5px}#pdfOverlayCanvas{left:5px;top:5px}.pdf-import-panel .pdf-field{flex:1 1 130px}}
+.pdf-zoom-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;margin:8px 0;background:#edf4f8;border:1px solid #d7e3ec;border-radius:11px}
+.pdf-zoom-toolbar button{min-width:42px;padding:9px 12px}
+.pdf-zoom-quick-label{font-size:.82rem;font-weight:800;color:#31516b;white-space:nowrap}
+.pdf-zoom-quick{display:flex;flex-wrap:wrap;gap:5px;align-items:center;max-width:100%}
+.pdf-zoom-quick button{min-width:0!important;padding:7px 9px!important;font-size:.78rem}
+@media(max-width:650px){.pdf-zoom-quick{width:100%}.pdf-zoom-quick button{flex:1 0 64px}}
+
+.pdf-zoom-toolbar input[type=range]{width:min(220px,38vw);accent-color:#087e70}
+.pdf-zoom-readout{min-width:58px;text-align:center;font-weight:800;color:#145b70;font-variant-numeric:tabular-nums}
+.pdf-canvas-wrap.pdf-panning{cursor:grabbing}
+#pdfPageCanvas{cursor:crosshair}
+.pdf-canvas-wrap.pdf-pan-mode{cursor:grab;touch-action:none}
+.pdf-canvas-wrap.pdf-pan-mode #pdfPageCanvas{cursor:grab}
+.pdf-zoom-toolbar button.is-active{background:#087e70;color:#fff;border:1px solid #087e70}
+.pdf-loupe{position:fixed;z-index:100000;display:none;width:198px;padding:7px;border-radius:13px;background:#102a43;border:2px solid #55d6c2;box-shadow:0 10px 32px #102a4360;pointer-events:none;color:#fff}
+.pdf-loupe.visible{display:block}
+.pdf-loupe-head,.pdf-loupe-foot{text-align:center;font-size:10px;font-weight:800;letter-spacing:.04em;padding:3px 2px}
+.pdf-loupe canvas{display:block;width:180px;height:180px;background:#fff;border:1px solid #8ba5b8;border-radius:5px}
+.pdf-loupe-foot{font-weight:600;letter-spacing:0;color:#c9e9e5}
+@media(max-width:650px){.pdf-zoom-toolbar{gap:6px;padding:8px}.pdf-zoom-toolbar input[type=range]{width:115px}.pdf-loupe{width:166px;padding:5px}.pdf-loupe canvas{width:148px;height:148px}.pdf-loupe-head,.pdf-loupe-foot{font-size:9px}}
+@media print{.pdf-import-panel{display:none!important}}
+</style>
+
+
+<style id="two-page-navigation-styles">
+.app-page[hidden]{display:none!important}
+.brand-nav{position:relative;z-index:2;flex:1 0 100%;width:100%;min-width:0;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:13px}
+.brand-nav-button{min-width:0;box-sizing:border-box;margin:0!important;min-height:50px;padding:13px 18px!important;border:1px solid rgba(255,255,255,.34)!important;border-radius:13px!important;background:rgba(255,255,255,.10)!important;color:#eaf5fb!important;font-weight:800!important;font-size:.96rem!important;letter-spacing:.01em;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)!important;text-align:center}
+.brand-nav-button:hover{background:rgba(255,255,255,.18)!important;transform:translateY(-1px)}
+.brand-nav-button.active{background:#f4fbff!important;color:#123a57!important;border-color:#ffffff!important;box-shadow:0 5px 16px rgba(2,18,32,.20)!important}
+.brand-nav-button:focus-visible{outline:3px solid #8fe4d9;outline-offset:3px}
+@media(max-width:650px){.brand-nav{grid-template-columns:1fr 1fr;gap:7px}.brand-nav-button{font-size:.82rem!important;min-height:54px;padding:10px 7px!important}}
+@media print{.brand-nav{display:none!important}.app-page[hidden]{display:none!important}}
+</style>
+
+<style id="manual-pdf-mode-style">
+.pdf-manual-panel{border:1px solid #c8dce7;background:linear-gradient(180deg,#f5fafc,#ffffff);border-radius:12px;padding:12px;margin-top:12px}
+#pdfManualBtn:not(:disabled){background:#176b83;color:#fff}
+#pdfManualBtn:disabled{opacity:.72}
+#pdfManualCloseBtn:not(:disabled){background:#087e70;color:#fff;font-weight:800;box-shadow:0 3px 12px #087e7033}
+#pdfManualPointCount{font-weight:700;padding:7px 10px;border-radius:8px;background:#eaf1f7}
+</style>
+
+<style id="temporary-pdf-lock-style">
+/* PDF zaměřování je dočasně uzamčeno; funkce zůstává v souboru zachována. */
+#navPdf{display:none!important;pointer-events:none!important}
+#pdfPage{display:none!important}
+</style>
+</head>
+<body><main>
+<div class="brandbar"><div class="brandmark"><span></span><span></span><span></span><span></span></div><div><div class="brand-kicker">STAVEBNÍ MĚŘENÍ A VÝMĚRY</div><h1>Stavební kalkulačka</h1><div class="brand-subtitle">Měření, kreslení a výpočty stavebních ploch · podklady pro rozpočty</div></div><div class="brand-version">VERZE 1.2.65</div>
+<div class="brand-nav" role="tablist" aria-label="Výběr kalkulačky">
+  <button type="button" class="brand-nav-button active" id="navDrawing" data-page="drawingPage" role="tab" aria-selected="true">▦ Kreslení a výpočty</button>
+  <button type="button" class="brand-nav-button" id="navPdf" data-page="pdfPage" role="tab" aria-selected="false">▤ PDF zaměřování</button>
+</div></div>
+<div class="app-page" id="drawingPage">
+<p class="intro-lead">Digitální pomocník pro zaměřování místností a stavebních ploch.</p>
+<p>Nakresli půdorys, uprav vrcholy a délky stran. Kalkulačka automaticky vypočítá plochu, obvod a připraví přehledné podklady pro rozpočet.</p>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px">
+<label for="unitSelect"><b>Jednotky zadávání a výpočtu:</b></label>
+<select id="unitSelect" style="padding:9px;border:1px solid #bdc9d8;border-radius:7px;font-size:1rem">
+<option value="m">Metry (m)</option>
+<option value="cm">Centimetry (cm)</option>
+</select>
+<span class="small muted">Přepnutí automaticky převede zobrazené hodnoty, skutečná velikost půdorysu se nemění.</span>
+</div>
+
+
+
+
+<section class="panel">
+<h2>1. Nakresli půdorys</h2>
+<div class="toolbar">
+<button id="drawBtn">Režim kreslení</button>
+<button id="panBtn" class="secondary">Režim posunu plochy</button>
+<button id="undoBtn" class="secondary">Vrátit poslední bod</button>
+<button id="undoChangeBtn" class="secondary" disabled title="Vrátí poslední dokončenou změnu">↶ Zpět změnu</button>
+<button id="redoChangeBtn" class="secondary" disabled title="Zopakuje vrácenou změnu">↷ Vpřed změnu</button>
+<button id="deleteBtn" class="secondary">Smazat vybraný vrchol</button>
+<span id="historyStatus" class="small muted" style="align-self:center;margin:4px 8px">Historie: připravuje se…</span>
+<button id="clearBtn" class="danger">Nový půdorys</button>
+<button id="shapeLibraryBtn" class="secondary">▦ Knihovna geometrických tvarů</button>
+<button id="zoomInBtn" class="secondary">＋ Přiblížit</button>
+<button id="zoomOutBtn" class="secondary">− Oddálit</button>
+<button id="resetViewBtn" class="secondary">Vycentrovat / 100 %</button>
+<label style="display:flex;align-items:center;gap:6px;margin:4px 8px;font-weight:bold">
+Podklad:
+<select id="drawingBackground" style="padding:8px;border:1px solid #bdc9d8;border-radius:7px">
+<option value="dots">Jemné body</option>
+<option value="grid" selected>Jemná mřížka</option>
+<option value="none">Bez podkladu</option>
+</select>
+</label>
+<span class="small muted" id="zoomReadout" style="align-self:center">100 %</span>
+<label style="display:flex;align-items:center;gap:6px;margin:4px 8px;font-weight:bold">
+<input type="checkbox" id="showDimensions" checked style="width:auto"> Zobrazit kóty
+</label>
+</div>
+<div class="smart-drawing" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 14px;margin:8px 0 12px;border:1px solid #d8e7ec;border-radius:12px;background:linear-gradient(110deg,#f1f8fa,#f7fafc)">
+ <strong style="color:#174a60">Inteligentní kreslení</strong>
+ <label style="display:flex;align-items:center;gap:5px;font-size:.9rem"><input type="checkbox" id="snapVertices" checked style="width:auto"> Body a hrany</label>
+ <label style="display:flex;align-items:center;gap:5px;font-size:.9rem"><input type="checkbox" id="snapAxis" checked style="width:auto"> Vodorovně / svisle</label>
+ <label style="display:flex;align-items:center;gap:5px;font-size:.9rem"><input type="checkbox" id="snapAngles" style="width:auto"> Úhly 45°</label>
+ <label style="display:flex;align-items:center;gap:5px;font-size:.9rem"><input type="checkbox" id="snapGrid" style="width:auto"> Mřížka 10 cm</label>
+ <label style="display:flex;align-items:center;gap:6px;font-size:.9rem">Délka
+  <input id="nextEdgeLength" type="text" inputmode="decimal" placeholder="podle kurzoru" style="width:105px;padding:7px">
+  <span id="nextEdgeUnit">m</span>
+ </label>
+ <label style="display:flex;align-items:center;gap:5px;font-size:.9rem">Úhel
+  <input id="nextEdgeAngle" type="text" inputmode="decimal" placeholder="podle kurzoru" style="width:82px;padding:7px">
+  °
+ </label>
+ <button type="button" id="insertNextPointBtn">Vložit bod</button>
+ <button type="button" id="clearNextEdgeLength" class="secondary">Obnovit podle kurzoru</button>
+ <span id="snapStatus" class="small muted" aria-live="polite">Přichytávání aktivní</span>
+</div>
+<p class="small muted">Při kreslení se délka a úhel průběžně zobrazují podle kurzoru. Před přidáním dalšího bodu lze upravit obě hodnoty; náhled se ihned přepočítá. Nový bod vložíš tlačítkem „Vložit bod“, klávesou Enter v poli úhlu nebo kliknutím do kreslicí plochy. Tyto hodnoty ovlivňují pouze následující stranu, nikoliv již nakreslené strany. <strong>„Vrátit poslední bod“</strong> slouží pouze ke krokovému odstraňování bodů při kreslení; nová tlačítka <strong>„Zpět změnu / Vpřed změnu“</strong> vrací a opakuje celé dokončené úpravy, například změnu délky, úhlu, posun vrcholu nebo smazání plochy. Fungují také klávesové zkratky Ctrl/Cmd+Z a Ctrl/Cmd+Shift+Z. Vrcholy lze kdykoliv přetahovat. Při tažení uzavřeného tvaru se v rohu průběžně zobrazuje vnitřní úhel. <strong>Kliknutím na vrchol uzavřeného tvaru</strong> otevřeš zadání přesného vnitřního úhlu (například 90°); délka následující strany zůstane zachována a další vrchol se automaticky přemístí. Posun celé plochy: zvol „Režim posunu plochy“ a táhni mimo vrcholy, nebo na PC podrž mezerník a táhni. Přiblížení/oddálení: kolečko myši, dvojklik nebo tlačítka +/−. Po uzavření tvaru se půdorys automaticky přizpůsobí ploše. Tlačítko „Vycentrovat / 100 %“ nastaví přesně 100 %.</p>
+<svg id="canvas" viewBox="0 0 800 500" aria-label="Kreslicí plocha půdorysu">
+<defs>
+ <pattern id="dotPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+  <circle cx="1.5" cy="1.5" r="1.05" fill="#cbd5e1" opacity=".72"/>
+ </pattern>
+ <pattern id="gridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#dbe3ed" stroke-width=".8" opacity=".8"/>
+ </pattern>
+</defs>
+<rect id="drawingBackgroundRect" x="0" y="0" width="800" height="500" fill="url(#gridPattern)" pointer-events="none"/>
+<g id="grid"></g><polygon id="polygon" class="poly" points="" />
+<defs><clipPath id="loupeClip"><circle cx="0" cy="0" r="54"/></clipPath></defs>
+<g id="edges"></g><g id="vertices"></g><g id="labels"></g><g id="loupe" pointer-events="none" style="display:none"></g>
+</svg>
+<div id="closeShapeDock" class="close-shape-dock" aria-live="polite">
+ <div class="close-shape-copy">
+  <strong id="closeShapeTitle">DOKONČENÍ PŮDORYSU</strong>
+  <span id="closeShapeStatus">Nejprve přidej alespoň 3 vrcholy (0/3). Potom zde jedním kliknutím uzavřeš tvar.</span>
+ </div>
+ <button type="button" id="closeBtn" class="close-shape-button" disabled>✓ UZAVŘÍT TVAR</button>
+</div>
+<p class="small muted" id="hint">Na iPhonu klepej prstem postupně na jednotlivé rohy místnosti. Každý dotyk přidá jeden vrchol. Po zadání alespoň 3 vrcholů použij výrazné tlačítko „UZAVŘÍT TVAR“ hned pod kreslicí plochou, případně klepni znovu na první vrchol V1. Tím se tvar uzavře bez přidání dalšího bodu.</p>
+</section>
+
+<section class="panel" id="projectPanel">
+<h2>Projekt a jednotlivé plochy</h2>
+<div class="toolbar">
+  <label for="roomNameInput" style="display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #d5e1eb;border-radius:8px;background:#f4f7fb;font-weight:700">Místnost <input id="roomNameInput" type="text" value="2.01" maxlength="40" aria-label="Název místnosti" style="width:100px;padding:8px;border:1px solid #bdc9d8;border-radius:6px;font:inherit;background:#fff"></label>
+  <select id="areaSelect" style="min-width:190px;padding:10px;border:1px solid #bdc9d8;border-radius:8px"></select>
+  <button id="addAreaBtn">＋ Přidat měření plochy</button>
+  <button id="renameAreaBtn" class="secondary">Přejmenovat</button>
+  <label style="display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #d5e1eb;border-radius:8px;background:#fff;font-weight:700;font-size:.88rem">Barva místnosti <input id="areaColorInput" type="color" value="#75aee8" aria-label="Barva celé místnosti" style="width:38px;height:32px;padding:2px;border:0;background:transparent;cursor:pointer"></label>
+  <button id="deleteAreaBtn" class="danger">Smazat plochu</button>
+  <button id="saveProjectBtn" class="secondary">Uložit projekt</button>
+  <button id="loadProjectBtn" class="secondary">Otevřít projekt</button>
+  <button id="exportPdfBtn" class="secondary">Export PDF / tisk</button>
+  <button id="exportExcelBtn" class="secondary">Export Excel (CSV)</button>
+  
+  <input id="projectFile" type="file" accept=".json,application/json" hidden>
+</div>
+<p class="small muted">Místnost <strong id="roomNameDescription">2.01</strong> obsahuje více samostatných měření ploch. Každé měření má vlastní geometrii, rozměry a kontrolní údaje. Průběžné změny se ukládají v tomto prohlížeči.</p>
+<div class="metrics">
+ <div class="metric"><span>Počet ploch</span><strong id="areaTotalCount">1</strong></div>
+ <div class="metric"><span>Celková plocha projektu</span><strong id="projectAreaTotal">—</strong></div>
+ <div class="metric"><span>Součet obvodů</span><strong id="projectPerimeterTotal">—</strong></div>
+</div>
+<div id="projectStatus" class="small muted" style="margin-top:8px" role="status" aria-live="polite">Projekt zatím není uložen jako soubor.</div>
+<div id="downloadFallback" class="small" style="margin-top:8px;display:none"></div>
+</section>
+
+<section class="panel">
+<h2>2. Vzdálenosti mezi jednotlivými body</h2>
+<p class="small">Pokud místnost má pravé úhly, zaškrtni tuto možnost. Kalkulačka pak při čtyřech stranách nastaví rohy na 90° a dopočítá protilehlou stranu. Pokud úhly nejsou pravé, nech volbu vypnutou.</p>
+<label style="display:flex;align-items:center;gap:9px;margin:10px 0;font-weight:bold">
+<input type="checkbox" id="rectangleMode" style="width:auto"> Místnost má pravé úhly (90°)
+</label>
+<div style="overflow-x:auto"><table><thead><tr><th>Strana</th><th>Úsek</th><th>Známý rozměr</th><th id="lengthHead">Zadaná vzdálenost (m)</th></tr></thead><tbody id="coords"><tr><td colspan="3" class="muted">Nejprve nakresli a uzavři půdorys.</td></tr></tbody></table></div>
+</section>
+
+<section class="panel">
+<h2>3. Strany vytvořené podle nakresleného tvaru</h2>
+<p class="small">Délky v této tabulce lze také upravovat. Změna upraví pouze polohu již existujících vrcholů – nepřidává žádný nový bod. Úprava se promítne do sekce 2, nákresu i výpočtů.</p>
+<div style="overflow-x:auto"><table><thead><tr><th>Strana</th><th>Směr</th><th>Délka</th></tr></thead><tbody id="sides"><tr><td colspan="3" class="muted">Tabulka se vytvoří po uzavření tvaru.</td></tr></tbody></table></div>
+</section>
+
+<section class="panel">
+<h2>4. Kontrola úhlopříček</h2>
+<p class="small">U čtyřúhelníku kalkulačka vypočítá obě úhlopříčky z polohy vrcholů. Pokud je na stavbě změříš, zadej naměřené hodnoty a porovnej je s výpočtem. Bez naměřené hodnoty jde pouze o výpočet z nákresu, nikoliv o nezávislé ověření.</p>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Úhlopříčka</th><th>Vypočtená délka</th><th>Naměřená délka</th><th>Rozdíl</th><th>Kontrola</th></tr></thead>
+<tbody id="diagonals">
+<tr><td colspan="5" class="muted">Kontrola úhlopříček je dostupná po uzavření čtyřúhelníku.</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="panel">
+<h2>5. Geometrická kontrola</h2>
+<div class="metrics single-metric">
+<div class="metric"><span>Počet stran</span><strong id="count">0</strong></div>
+</div>
+<p class="small muted">Výsledná plocha a obvod se zobrazují přímo v nákresu, uprostřed uzavřeného tvaru.</p>
+<p>Vodorovné uzavření (součet ΔX): <strong id="closeX">—</strong></p>
+<p>Svislé uzavření (součet ΔY): <strong id="closeY">—</strong></p>
+<div id="status" class="status">Čekám na uzavření půdorysu.</div>
+<div id="geometryDiagnostics" style="margin-top:12px;padding:13px 15px;border:1px solid #dce6ef;border-radius:11px;background:#f8fafc">
+ <strong style="display:block;color:#183b59;margin-bottom:7px">Inteligentní diagnostika půdorysu</strong>
+ <ul id="geometryChecks" class="small" style="margin:0;padding-left:20px;color:#526078"><li>Po uzavření půdorysu se zobrazí výsledky kontroly.</li></ul>
+</div>
+<div hidden aria-hidden="true"><span id="area">—</span><span id="perimeter">—</span></div>
+</section>
+
+</div>
+<div class="app-page" id="pdfPage" hidden><section class="panel pdf-import-panel" id="pdfImportPanel">
+ <h2>0. PDF zaměřování – ruční označení místností</h2>
+ <p class="pdf-help">Nahraj PDF půdorysu, nastav měřítko podle známé kóty a každou místnost ručně obkresli klikáním na její vnitřní rohy. Automatické hledání místností je odstraněno; všechny místnosti budeš označovat ručně. Takto označené hranice máš plně pod kontrolou; kalkulačka z nich vypočítá plochu a obvod.</p>
+ <div class="pdf-controls">
+  <label class="pdf-field">Soubor PDF<input id="pdfFileInput" type="file" accept="application/pdf,.pdf"></label>
+  <label class="pdf-field">Stránka<select id="pdfPageSelect" disabled><option value="1">1</option></select></label>
+  <button id="pdfPrevPage" class="secondary" disabled>◀ Předchozí</button>
+  <button id="pdfNextPage" class="secondary" disabled>Další ▶</button>
+  <button id="pdfCalibrateBtn" class="secondary" disabled>① Nastavit měřítko</button>
+ </div>
+ <div class="pdf-controls">
+  <label class="pdf-field">Známá délka (m)<input id="pdfKnownLength" type="text" inputmode="decimal" autocomplete="off" value="4,00" placeholder="např. 4,00"></label>
+  <button id="pdfApplyCalibration" disabled>Potvrdit měřítko</button>
+  <button type="button" id="pdfEditCalPoint1" class="secondary" disabled>Posunout bod 1</button>
+  <button type="button" id="pdfEditCalPoint2" class="secondary" disabled>Posunout bod 2</button>
+  <button type="button" id="pdfDeleteCalPoint" class="secondary" disabled>Smazat bod</button>
+  <button type="button" id="pdfClearCalPoints" class="danger" disabled>Smazat oba body</button>
+  <span class="small muted" id="pdfCalStep" style="flex:1 1 100%;font-weight:700">1. Nahraj PDF. 2. Klikni na „Nastavit měřítko“. 3. Označ dva konce známé kóty.</span>
+  <span class="small muted" id="pdfScaleReadout">Měřítko není nastaveno.</span>
+ </div>
+ <div class="pdf-zoom-toolbar" aria-label="Zvětšení kolečkem myši" style="display:none">
+  <b>Zvětšení výkresu:</b>
+  <button type="button" id="pdfZoomOut" class="secondary" title="Oddálit">−</button>
+  <input id="pdfZoomSlider" type="range" min="50" max="2500" step="10" value="100" aria-label="Zvětšení PDF v procentech">
+  <button type="button" id="pdfZoomIn" class="secondary" title="Přiblížit">＋</button>
+  <span class="pdf-zoom-readout" id="pdfZoomReadout">100 %</span>
+  <label class="pdf-field" style="min-width:112px">Zadat zoom %<input id="pdfZoomNumber" type="number" min="50" max="2500" step="10" value="100" style="width:100%"></label>
+  <span class="pdf-zoom-quick-label">Rychlý zoom:</span>
+  <div class="pdf-zoom-quick" aria-label="Rychlé hodnoty zvětšení">
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="100">100 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="200">200 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="300">300 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="400">400 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="500">500 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="600">600 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="800">800 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="1000">1000 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="1200">1200 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="1600">1600 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="2000">2000 %</button>
+   <button type="button" class="secondary pdf-zoom-preset" data-pdf-zoom="2500">2500 %</button>
+  </div>
+  <button type="button" id="pdfZoomFit" class="secondary">Přizpůsobit šířce</button>
+  <span class="small muted" style="padding:7px 4px">Kolečkem myši přibliž / oddal · lupa 8×</span>
+  <button type="button" id="pdfLoupeToggle" class="secondary is-active" aria-pressed="true" title="Zapnout nebo vypnout živou lupu">🔍 Lupa zapnutá</button>
+ </div>
+ <p class="pdf-help" id="pdfPanHelp">Posun bez přepínače: mimo kreslení táhni výkres levým tlačítkem myši nebo jedním prstem. Během kalibrace či obkreslování podrž mezerník a táhni, případně použij prostřední tlačítko myši. Kolečkem měníš zvětšení.</p>
+ <div class="pdf-canvas-wrap" id="pdfCanvasWrap">
+  <canvas id="pdfPageCanvas" aria-label="Náhled stránky PDF"></canvas>
+  <canvas id="pdfOverlayCanvas" aria-hidden="true"></canvas>
+  <div id="pdfScaleInline" style="display:none;position:absolute;pointer-events:auto;z-index:30;transform:translate(-50%,-110%);background:#fff;border:2px solid #0f766e;border-radius:10px;padding:9px 11px;box-shadow:0 4px 18px #0003;min-width:190px">
+   <div style="font-weight:700;font-size:12px;margin-bottom:5px;color:#123b50">SKUTEČNÁ VZDÁLENOST</div>
+   <div style="display:flex;gap:6px;align-items:center"><input id="pdfInlineKnownLength" type="text" inputmode="decimal" value="4,00" style="width:90px;padding:7px;border:1px solid #9aa;border-radius:6px"><span>m</span><button id="pdfInlineApply" type="button" style="position:relative;z-index:40;pointer-events:auto">Potvrdit</button></div>
+  </div>
+ </div>
+ <div class="pdf-loupe" id="pdfLoupe" aria-hidden="true"><div class="pdf-loupe-head">ŽIVÁ LUPA · 8×</div><canvas id="pdfLoupeCanvas" width="180" height="180"></canvas><div class="pdf-loupe-foot">Střed kříže = přesný bod výběru</div></div>
+ <div id="pdfImportStatus" class="pdf-status">Nahraj PDF. Soubor se zpracovává přímo v prohlížeči.</div>
+ <div class="pdf-manual-panel">
+  <div class="pdf-controls" style="align-items:center;margin-bottom:9px">
+   <label class="pdf-field" style="max-width:210px">Výška místnosti (m)<input id="pdfRoomHeight" type="number" min="0" step="0.01" value="2.60" style="width:100%"></label>
+   <span class="small muted">Výška se použije pro výpočet objemu v m³ u nově uzavřených místností.</span>
+  </div>
+  <div class="pdf-controls" style="align-items:center">
+   <button id="pdfManualBtn" class="secondary" disabled>✎ Začít obkreslovat místnost</button>
+   <button id="pdfManualUndoBtn" class="secondary" disabled>↶ Vrátit poslední bod</button>
+   <button id="pdfManualCancelBtn" class="secondary" disabled>Zrušit rozpracovaný obrys</button>
+   <button id="pdfManualCloseBtn" disabled>✓ Uzavřít místnost</button>
+   <span id="pdfManualPointCount" class="small muted">0 bodů</span>
+  </div>
+  <div class="pdf-help" id="pdfCalibHelp">Postup: 1. Nastav měřítko podle známé kóty. 2. Klikni na „Začít obkreslovat místnost“. 3. Klikáním označ vnitřní rohy místnosti po směru obvodu. Během kreslení podrž mezerník a táhni pro posun výkresu. 4. Uzavři obrys. 5. Pojmenuj místnost a přidej ji do projektu. Každou místnost označ samostatně. Při chybě můžeš vrátit poslední bod nebo obrys zrušit.</div>
+  <div id="pdfRoomList" class="pdf-room-list"></div>
+  <div class="pdf-controls">
+   <label class="pdf-field">Číslo / název místnosti (lze kdykoliv opravit)<input id="pdfRoomName" type="text" value="" placeholder="Např. 2.01 – Chodba"></label>
+   <button id="pdfAddRoomBtn" disabled>＋ Přidat označenou místnost do projektu</button>
+   <button id="pdfClearBtn" class="secondary" disabled>Vymazat všechny obrysy</button>
+  </div>
+  <p class="pdf-help">Každý uzavřený ruční obrys dostane vlastní barvu. U každé strany se zobrazí délka a uvnitř místnosti plocha i obvod. Číslo nebo název lze před přidáním i později opravit. Přidaná místnost se převede na samostatnou plochu první stránky, kde ji můžeš dále upravovat. PDF zůstává původním podkladem.</p>
+ </div>
+
+</section></div>
+</main>
+<div id="dimensionEditOverlay" class="dimension-edit-overlay" hidden>
+ <div class="dimension-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="dimensionEditTitle">
+  <h3 id="dimensionEditTitle">Upravit délku strany</h3>
+  <label for="dimensionEditValue">Skutečná vzdálenost (<span id="dimensionEditUnit">m</span>)</label>
+  <input id="dimensionEditValue" type="text" inputmode="decimal" autocomplete="off">
+  <div id="dimensionEditError" class="dimension-edit-error"></div>
+  <div class="dimension-edit-actions">
+   <button type="button" id="dimensionEditCancel" class="secondary">Zrušit</button>
+   <button type="button" id="dimensionEditSave">Použít rozměr</button>
+  </div>
+ </div>
+</div>
+<div id="projectDialogOverlay" class="dimension-edit-overlay" hidden>
+ <div class="dimension-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="projectDialogTitle">
+  <h3 id="projectDialogTitle">Přejmenovat plochu</h3>
+  <p id="projectDialogMessage">Zadej nový název plochy.</p>
+  <label id="projectDialogLabel" for="projectDialogInput">Název plochy</label>
+  <input id="projectDialogInput" type="text" maxlength="80" autocomplete="off">
+  <div id="projectDialogError" class="dimension-edit-error" aria-live="polite"></div>
+  <div class="dimension-edit-actions">
+   <button type="button" id="projectDialogCancel" class="secondary">Zrušit</button>
+   <button type="button" id="projectDialogConfirm">Uložit název</button>
+  </div>
+ </div>
+</div>
+<div id="angleEditOverlay" class="dimension-edit-overlay" hidden>
+ <div class="dimension-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="angleEditTitle">
+  <h3 id="angleEditTitle">Nastavit vnitřní úhel</h3>
+  <p id="angleEditHelp" class="small muted" style="margin:0 0 12px">Změní se poloha následujícího vrcholu. Délka následující strany zůstane zachována.</p>
+  <label for="angleEditValue">Vnitřní úhel (°)</label>
+  <input id="angleEditValue" type="text" inputmode="decimal" autocomplete="off" placeholder="např. 90">
+  <div id="angleEditError" class="dimension-edit-error" aria-live="polite"></div>
+  <div class="dimension-edit-actions">
+   <button type="button" id="angleEditCancel" class="secondary">Zrušit</button>
+   <button type="button" id="angleEditSave">Použít úhel</button>
+  </div>
+ </div>
+</div>
+<div id="shapeLibraryOverlay" class="dimension-edit-overlay" hidden>
+ <div class="dimension-edit-dialog shape-dialog" role="dialog" aria-modal="true" aria-labelledby="shapeLibraryTitle">
+  <h3 id="shapeLibraryTitle">Knihovna geometrických tvarů</h3>
+  <p class="small muted" style="margin:0 0 14px">Vyber předlohu, zadej skutečné rozměry a vlož ji do výkresu. Po vložení můžeš libovolně upravovat vrcholy, strany i úhly.</p>
+  <div class="shape-layout">
+   <div>
+    <label class="shape-field" for="shapeType">Typ obrazce
+     <select id="shapeType">
+      <optgroup label="Základní tvary">
+       <option value="rectangle">Obdélník</option><option value="square">Čtverec</option><option value="rightTriangle">Pravoúhlý trojúhelník</option><option value="isoscelesTriangle">Rovnoramenný trojúhelník</option><option value="equilateralTriangle">Rovnostranný trojúhelník</option><option value="trapezoid">Lichoběžník</option><option value="parallelogram">Rovnoběžník</option><option value="rhombus">Kosočtverec</option><option value="diamond">Deltoid / diamant</option>
+      </optgroup>
+      <optgroup label="Pravidelné mnohoúhelníky a oblou tvary">
+       <option value="pentagon">Pětiúhelník</option><option value="hexagon">Šestiúhelník</option><option value="octagon">Osmiúhelník</option><option value="decagon">Desetiúhelník</option><option value="circle">Kruh (32 vrcholů)</option><option value="ellipse">Elipsa (32 vrcholů)</option>
+      </optgroup>
+      <optgroup label="Stavební půdorysy">
+       <option value="L">Půdorys L</option><option value="Lmirror">Půdorys L – zrcadlový</option><option value="Lrotate">Půdorys L – otočený</option><option value="LrotateMirror">Půdorys L – otočený zrcadlově</option><option value="U">Půdorys U</option><option value="Udown">Půdorys U – otočený</option><option value="C">Půdorys C</option><option value="Cmirror">Půdorys C – zrcadlový</option><option value="T">Půdorys T</option><option value="Tdown">Půdorys T – otočený</option><option value="H">Půdorys H</option><option value="E">Půdorys E</option><option value="F">Půdorys F</option><option value="cross">Křížový půdorys</option><option value="stairs3">Schodovitý půdorys – 3 stupně</option><option value="stairs4">Schodovitý půdorys – 4 stupně</option><option value="zigzag">Klikatý / zalomený půdorys</option>
+      </optgroup>
+     </select>
+    </label>
+    <div class="shape-fields" style="margin-top:12px">
+     <label class="shape-field" for="shapeWidth">Šířka W (<span class="shapeUnit">m</span>)<input id="shapeWidth" type="text" inputmode="decimal" value="6"></label>
+     <label class="shape-field" for="shapeHeight">Výška H (<span class="shapeUnit">m</span>)<input id="shapeHeight" type="text" inputmode="decimal" value="4"></label>
+     <label class="shape-field" id="shapeParamAWrap" for="shapeParamA"><span id="shapeParamALabel">Rozměr A</span> (<span class="shapeUnit">m</span>)<input id="shapeParamA" type="text" inputmode="decimal" value="2"></label>
+     <label class="shape-field" id="shapeParamBWrap" for="shapeParamB"><span id="shapeParamBLabel">Rozměr B</span> (<span class="shapeUnit">m</span>)<input id="shapeParamB" type="text" inputmode="decimal" value="1.5"></label>
+    </div>
+    <div class="small muted" id="shapeHelp" style="margin-top:10px;line-height:1.45">Zadej šířku a výšku obdélníku.</div>
+    <label class="shape-check"><input type="checkbox" id="shapeAsNewArea" checked> Vložit jako novou plochu projektu (doporučeno)</label>
+   </div>
+   <div class="shape-preview">
+    <b style="color:#244963;font-size:.92rem">Náhled tvaru</b>
+    <svg id="shapePreviewSvg" viewBox="0 0 320 190" role="img" aria-label="Náhled vybraného geometrického tvaru"><polygon id="shapePreviewPolygon" points="" fill="#dcecff" stroke="#2463c5" stroke-width="3" stroke-linejoin="round"/></svg>
+    <div class="shape-preview-caption" id="shapePreviewCaption">Náhled se přepočítává podle zadaných rozměrů.</div>
+   </div>
+  </div>
+  <div id="shapeError" class="dimension-edit-error" aria-live="polite"></div>
+  <div class="dimension-edit-actions">
+   <button type="button" id="shapeDialogCancel" class="secondary">Zrušit</button>
+   <button type="button" id="shapeDialogApply">Vložit tvar do výkresu</button>
+  </div>
+ </div>
+</div>
+<script>
+const $=id=>document.getElementById(id), svg=$('canvas');
+let pts=[],closed=false,mode='draw',dragIndex=-1,selectedIndex=-1,dragMap=null,desiredLengths=[],pointerWorld=null,pointerSvg=null;
+let dragStartScreen=null,dragHasMoved=false,editingAngleVertex=null;
+let centerMeasurementOffset=null,centerDragState=null;
+let rectangleMode=false;
+let measuredDiagonals=[null,null];
+let areas=[{id:'area-1',name:'Plocha 1',roomName:'2.01',pts:[],closed:false,desiredLengths:[],measuredDiagonals:[null,null],rectangleMode:false,centerOffset:null,color:'#75aee8'}];
+let activeAreaId='area-1', projectName='Projekt';
+let historyStack=[],historyIndex=-1,restoringHistory=false;
+const HISTORY_LIMIT=60;
+let viewZoom=1,viewPanX=0,viewPanY=0,panState=null,spaceDown=false;
+const fmt=n=>n.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2});
+const unitFactor=()=> $('unitSelect').value==='cm'?100:1;
+const unitLength=()=> $('unitSelect').value;
+const unitArea=()=> $('unitSelect').value==='cm'?'cm²':'m²';
+const shown=n=>fmt(n*unitFactor());
+function updateUnitLabels(){
+ $('lengthHead').textContent=`Vzdálenost (${unitLength()})`;
+}
+const W=800,H=500,pad=55;
+const DRAW_SCALE=100, DRAW_OX=pad, DRAW_OY=pad;
+function project(){
+ return pts.map(p=>({
+  x:DRAW_OX*viewZoom+p.x*DRAW_SCALE*viewZoom+viewPanX,
+  y:H-(DRAW_OY+p.y*DRAW_SCALE)*viewZoom+viewPanY
+ }));
+}
+function screenToWorld(p){
+ return {
+  x:(p.x-viewPanX-DRAW_OX*viewZoom)/(DRAW_SCALE*viewZoom),
+  y:((H+viewPanY-p.y)/viewZoom-DRAW_OY)/DRAW_SCALE
+ };
+}
+function smartDrawingPoint(raw){
+ if(!pts.length)return {point:raw,status:'Volné kreslení'};
+ const origin=pts[pts.length-1];
+ let p={x:raw.x,y:raw.y},status='';
+ const threshold=14/(DRAW_SCALE*viewZoom);
+
+ // Přichycení k existujícím vrcholům.
+ if($('snapVertices').checked){
+  let best=null,bestD=threshold;
+  pts.forEach((v,i)=>{if(i===pts.length-1)return;const d=Math.hypot(v.x-raw.x,v.y-raw.y);if(d<bestD){bestD=d;best=v;}});
+  // Projekce na existující hrany (otevřený i uzavřený půdorys).
+  const count=closed?pts.length:Math.max(0,pts.length-1);
+  for(let i=0;i<count;i++){
+   const a=pts[i],b=pts[(i+1)%pts.length],dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
+   if(!l2)continue;
+   const t=Math.max(0,Math.min(1,((raw.x-a.x)*dx+(raw.y-a.y)*dy)/l2));
+   const candidate={x:a.x+t*dx,y:a.y+t*dy},d=Math.hypot(candidate.x-raw.x,candidate.y-raw.y);
+   if(d<bestD){bestD=d;best=candidate;}
+  }
+  if(best){p={x:best.x,y:best.y};status='Přichyceno k bodu / hraně';return {point:p,status};}
+ }
+ // Zarovnání vůči poslednímu bodu; pokud jsou obě osy blízko, vybere bližší.
+ if($('snapAxis').checked){
+  const dx=Math.abs(raw.x-origin.x),dy=Math.abs(raw.y-origin.y);
+  if(dx<threshold||dy<threshold){
+   if(dx<=dy)p.x=origin.x;else p.y=origin.y;
+   status='Zarovnáno';
+  }
+ }
+ // Úhlové kroky po 45°; tolerance odpovídá přibližně 8 obrazovým bodům.
+ if(!status&&$('snapAngles').checked){
+  const dx=raw.x-origin.x,dy=raw.y-origin.y,len=Math.hypot(dx,dy);
+  if(len>0){const a=Math.atan2(dy,dx),step=Math.PI/4,target=Math.round(a/step)*step;
+   if(Math.abs(Math.atan2(Math.sin(a-target),Math.cos(a-target)))*len<8/(DRAW_SCALE*viewZoom)){
+    p={x:origin.x+Math.cos(target)*len,y:origin.y+Math.sin(target)*len};status='Úhel '+Math.round(target*180/Math.PI)+'°';
+   }
+  }
+ }
+ if($('snapGrid').checked){p={x:Math.round(p.x/.1)*.1,y:Math.round(p.y/.1)*.1};status=status||'Mřížka 10 cm';}
+ return {point:p,status};
+}
+function updateDynamicInputs(rawPoint){
+ if(!pts.length)return;
+ const origin=pts[pts.length-1],dx=rawPoint.x-origin.x,dy=rawPoint.y-origin.y;
+ const length=Math.hypot(dx,dy),angle=(Math.atan2(dy,dx)*180/Math.PI+360)%360;
+ const lengthInput=$('nextEdgeLength'),angleInput=$('nextEdgeAngle');
+ if(document.activeElement!==lengthInput && document.activeElement!==angleInput && lengthInput.dataset.manual!=='1' && angleInput.dataset.manual!=='1'){
+  lengthInput.value=fmt(length*unitFactor());angleInput.value=fmt(angle);
+ }
+}
+function dynamicEndpoint(rawPoint){
+ const origin=pts[pts.length-1];
+ const ltxt=String($('nextEdgeLength').value||'').trim().replace(',','.');
+ const atxt=String($('nextEdgeAngle').value||'').trim().replace(',','.');
+ const length=Number(ltxt),angle=Number(atxt);
+ if(!ltxt||!atxt||!Number.isFinite(length)||length<=0||!Number.isFinite(angle))return null;
+ const rad=angle*Math.PI/180,meters=length/unitFactor();
+ return {x:origin.x+Math.cos(rad)*meters,y:origin.y+Math.sin(rad)*meters};
+}
+function resetDynamicInputs(){
+ ['nextEdgeLength','nextEdgeAngle'].forEach(id=>{const el=$(id);el.value='';el.dataset.manual='';});
+}
+function updateSmartStatus(status){$('snapStatus').textContent=status||'Volné kreslení';}
+function updateZoomReadout(){ $('zoomReadout').textContent=Math.round(viewZoom*100)+' %'; }
+function zoomAt(factor,cx=W/2,cy=H/2){
+ const old=viewZoom, next=Math.max(.2,Math.min(8,old*factor));
+ const k=next/old;
+ viewPanX=cx-(cx-viewPanX)*k;
+ viewPanY=cy-(cy-viewPanY)*k;
+ viewZoom=next;updateZoomReadout();render();
+}
+function resetView(){
+ // Tlačítko nastavuje skutečných 100 % a pouze vycentruje půdorys.
+ viewZoom=1;viewPanX=0;viewPanY=0;
+ if(pts.length){
+  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+  const minX=Math.min(...xs),maxX=Math.max(...xs);
+  const minY=Math.min(...ys),maxY=Math.max(...ys);
+  const centerX=DRAW_OX+(minX+maxX)/2*DRAW_SCALE;
+  const centerY=H-(DRAW_OY+(minY+maxY)/2*DRAW_SCALE);
+  viewPanX=W/2-centerX;
+  viewPanY=H/2-centerY;
+ }
+ updateZoomReadout();render();
+}
+function pointInPolygon2D(p, poly){
+ let inside=false;
+ for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const a=poly[i],b=poly[j];
+  const crosses=((a.y>p.y)!==(b.y>p.y)) &&
+   (p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y+1e-15)+a.x);
+  if(crosses)inside=!inside;
+ }
+ return inside;
+}
+function distanceToSegment2D(p,a,b){
+ const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
+ if(l2===0)return Math.hypot(p.x-a.x,p.y-a.y);
+ const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/l2));
+ return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));
+}
+function polygonInteriorAnchor(poly){
+ if(!poly||poly.length<3)return null;
+ let twice=0;
+ for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];twice+=a.x*b.y-b.x*a.y;}
+ if(Math.abs(twice)<1e-8)return null;
+ const xs=poly.map(p=>p.x),ys=poly.map(p=>p.y);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ const spanX=maxX-minX,spanY=maxY-minY;
+ if(!(spanX>0&&spanY>0))return null;
+ const clearanceAt=p=>{
+  let d=Infinity;
+  for(let i=0;i<poly.length;i++)d=Math.min(d,distanceToSegment2D(p,poly[i],poly[(i+1)%poly.length]));
+  return pointInPolygon2D(p,poly)?d:-d;
+ };
+ // Vyhledáme bod s největším odstupem od hran (pole of inaccessibility).
+ // Na rozdíl od geometrického těžiště funguje i pro L/U/C a úzké výklenky.
+ const aspect=Math.max(spanX,spanY)/Math.max(1e-9,Math.min(spanX,spanY));
+ const nx=Math.max(32,Math.min(180,Math.ceil(88*Math.sqrt(spanX/Math.max(spanX,spanY)))));
+ const ny=Math.max(32,Math.min(180,Math.ceil(88*Math.sqrt(spanY/Math.max(spanX,spanY)))));
+ let best=null,bestD=-Infinity;
+ for(let iy=0;iy<=ny;iy++)for(let ix=0;ix<=nx;ix++){
+  const p={x:minX+spanX*ix/nx,y:minY+spanY*iy/ny};
+  const d=clearanceAt(p);
+  if(d>bestD){bestD=d;best=p;}
+ }
+ // Zjemnění kolem nejlepšího nalezeného bodu.
+ let step=Math.max(spanX/nx,spanY/ny);
+ for(let pass=0;pass<7;pass++){
+  step/=2;
+  const origin={...best};
+  for(let iy=-3;iy<=3;iy++)for(let ix=-3;ix<=3;ix++){
+   const p={x:origin.x+ix*step,y:origin.y+iy*step};
+   const d=clearanceAt(p);
+   if(d>bestD){bestD=d;best=p;}
+  }
+ }
+ if(!best||bestD<=0||!Number.isFinite(bestD))return null;
+ return {point:best,clearance:bestD};
+}
+function renderCenterMeasurements(q){
+ if(!closed||pts.length<3||!q||q.length<3)return '';
+ let twice=0,per=0;
+ for(let i=0;i<pts.length;i++){
+  const a=pts[i],b=pts[(i+1)%pts.length];
+  twice+=a.x*b.y-b.x*a.y;
+  per+=Math.hypot(b.x-a.x,b.y-a.y);
+ }
+ const area=Math.abs(twice)/2;
+ if(!(area>0)||!Number.isFinite(per)||!polygonIsSimple(pts))return '';
+ const anchor=polygonInteriorAnchor(q);if(!anchor)return '';
+ const baseX=anchor.point.x,baseY=anchor.point.y;
+ const offset=centerMeasurementOffset||{x:0,y:0};
+ const cx=baseX+offset.x,cy=baseY+offset.y,clearance=Math.max(0,anchor.clearance||0);
+ const areaText='Plocha: '+fmt(area*(unitFactor()===100?10000:1))+' '+unitArea();
+ const perimeterText='Obvod: '+shown(per)+' '+unitLength();
+ // Základní velikost tabulky se přizpůsobí dostupnému prostoru. Celá obálka
+ // tabulky se vejde do kružnice vepsané v obrazci, proto nepřesáhne žádnou hranu.
+ const w=Math.max(118,Math.min(190,Math.max(areaText.length,perimeterText.length)*5.9+24));
+ const h=40,diag=Math.hypot(w,h);
+ const scale=Math.min(1,(clearance*1.78)/diag);
+ const visibleW=w*scale,visibleH=h*scale;
+ const areaFont=Math.max(6.2,Math.min(10.5,(w-14)/(areaText.length*0.56)));
+ const periFont=Math.max(6.2,Math.min(9.5,(w-14)/(perimeterText.length*0.56)));
+ return `<g class="measurement-center" pointer-events="all" style="cursor:grab" aria-label="Přetáhni pro posunutí rámečku. ${areaText}, ${perimeterText}" transform="translate(${cx} ${cy}) scale(${scale})">
+  <rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8" fill="#102f49" fill-opacity=".94" stroke="#55d6c2" stroke-width="1.3" pointer-events="all"/>
+  <text x="0" y="-4" text-anchor="middle" font-family="Arial,sans-serif" font-size="${areaFont}" font-weight="700" fill="#ffffff">${areaText}</text>
+  <text x="0" y="11" text-anchor="middle" font-family="Arial,sans-serif" font-size="${periFont}" font-weight="600" fill="#a9e9df">${perimeterText}</text>
+ </g>`;
+}
+
+function liveDraggedCornerAngle(q){
+ if(!closed || dragIndex<0 || pts.length<3 || !q[dragIndex])return '';
+ const n=pts.length,i=dragIndex,prev=(i-1+n)%n,next=(i+1)%n;
+ const c=q[i],p=q[prev],z=q[next];
+ // Orientace uzavřeného polygonu v souřadnicích SVG určuje, která
+ // z obou možných oblouků představuje jeho vnitřní úhel (i u konkávních rohů).
+ let area2=0;
+ for(let k=0;k<n;k++){const a=q[k],b=q[(k+1)%n];area2+=a.x*b.y-b.x*a.y;}
+ const sweepSign=area2<0?1:-1;
+ const a1=Math.atan2(p.y-c.y,p.x-c.x);
+ const a2=Math.atan2(z.y-c.y,z.x-c.x);
+ const tau=Math.PI*2;
+ let delta=sweepSign>0?((a2-a1+tau)%tau):-((a1-a2+tau)%tau);
+ if(Math.abs(delta)<1e-5)return '';
+ const angle=Math.abs(delta),degrees=angle*180/Math.PI;
+ const r=27, sx=c.x+Math.cos(a1)*r, sy=c.y+Math.sin(a1)*r;
+ const ex=c.x+Math.cos(a2)*r, ey=c.y+Math.sin(a2)*r;
+ const large=angle>Math.PI?1:0, sweep=sweepSign>0?1:0;
+ const mid=a1+delta/2, labelR=54;
+ const lx=c.x+Math.cos(mid)*labelR,ly=c.y+Math.sin(mid)*labelR;
+ const label=fmt(degrees)+'°',w=Math.max(58,label.length*7.2+16);
+ return `<g class="drag-angle-overlay" pointer-events="none">
+  <path d="M ${sx} ${sy} A ${r} ${r} 0 ${large} ${sweep} ${ex} ${ey}" fill="none" stroke="#10a99a" stroke-width="3.2" stroke-linecap="round"/>
+  <circle cx="${c.x}" cy="${c.y}" r="3.2" fill="#10a99a" stroke="#ffffff" stroke-width="1.3"/>
+  <g transform="translate(${lx},${ly})">
+   <rect x="${-w/2}" y="-13" width="${w}" height="26" rx="13" fill="#123f5b" stroke="#ffffff" stroke-width="2"/>
+   <text x="0" y="4.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">${label}</text>
+  </g>
+ </g>`;
+}
+function updateCloseShapeAction(){
+ const dock=$('closeShapeDock'),button=$('closeBtn'),title=$('closeShapeTitle'),status=$('closeShapeStatus');
+ if(!dock||!button||!title||!status)return;
+ dock.classList.remove('waiting','ready','done');
+ if(closed){
+  dock.classList.add('done');
+  title.textContent='PŮDORYS JE UZAVŘEN';
+  status.textContent='Tvar je dokončen. Můžeš upravovat vrcholy, kóty a pokračovat ve výpočtech.';
+  button.disabled=true;
+  button.textContent='✓ TVAR UZAVŘEN';
+  button.setAttribute('aria-label','Půdorys je uzavřen');
+ }else if(pts.length>=3){
+  dock.classList.add('ready');
+  title.textContent='PŮDORYS JE PŘIPRAVEN K UZAVŘENÍ';
+  status.textContent=`Máš ${pts.length} vrcholů. Dokonči obrys spojením posledního bodu s prvním.`;
+  button.disabled=false;
+  button.textContent='✓ UZAVŘÍT TVAR';
+  button.setAttribute('aria-label','Uzavřít nakreslený půdorys');
+ }else{
+  dock.classList.add('waiting');
+  title.textContent='DOKONČENÍ PŮDORYSU';
+  const remaining=3-pts.length;
+  status.textContent=pts.length===0
+   ?'Začni kreslit a přidej alespoň 3 vrcholy. Tlačítko se aktivuje automaticky.'
+   :`Přidej ještě ${remaining} ${remaining===1?'vrchol':'vrcholy'} (${pts.length}/3). Tlačítko se aktivuje po třetím bodu.`;
+  button.disabled=true;
+  button.textContent='✓ UZAVŘÍT TVAR';
+  button.setAttribute('aria-label','Pro uzavření nejprve přidej alespoň tři vrcholy');
+ }
+}
+function render(){
+ const q=project(),n=pts.length;
+ const activeArea=areas.find(a=>a.id===activeAreaId);
+ const roomColor=(activeArea&&/^#[0-9a-f]{6}$/i.test(activeArea.color||''))?activeArea.color:'#75aee8';
+ $('polygon').setAttribute('points',closed?q.map(p=>`${p.x},${p.y}`).join(' '):'');
+ $('polygon').style.fill=roomColor; $('polygon').style.fillOpacity=closed?'0.38':'0.10'; $('polygon').style.stroke=roomColor;
+ const colorInput=$('areaColorInput'); if(colorInput && colorInput.value.toLowerCase()!==roomColor.toLowerCase())colorInput.value=roomColor;
+ $('edges').innerHTML='';$('vertices').innerHTML='';$('labels').innerHTML='';
+ if(q.length){
+  const edgeCount=closed?n:Math.max(0,n-1);
+  for(let i=0;i<edgeCount;i++){
+   const a=q[i],b=q[(i+1)%n],mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+   $('edges').innerHTML+=`<line class="edge" data-edge="${i}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
+   if(closed){
+    $('labels').innerHTML+=`<text class="slabel" x="${mx}" y="${my-9}" text-anchor="middle">S${i+1}</text>`;
+    if($('showDimensions').checked){
+     const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1;
+     const nx=dy/len,ny=-dx/len;
+     const worldLen=Math.hypot(pts[(i+1)%n].x-pts[i].x,pts[(i+1)%n].y-pts[i].y);
+     const value=shown(worldLen)+' '+unitLength();
+     const lx=mx+nx*32,ly=my+ny*32-3,hitW=Math.max(38,value.length*6+8);
+     $('labels').innerHTML+=`<g class="dimension-hit" data-side="${i}" style="cursor:pointer;pointer-events:all">
+      <rect x="${lx-hitW/2}" y="${ly-14}" width="${hitW}" height="22" rx="2"
+       fill="#ffffff" fill-opacity="0.01" stroke="none"
+       />
+      <text class="dlabel" data-side="${i}" x="${lx}" y="${ly}" text-anchor="middle"
+       pointer-events="all"
+       >${value}</text>
+     </g>`;
+    }
+   }
+  }
+  // Při kreslení zobrazuj průběžnou spojnici od posledního bodu ke kurzoru
+  // ještě před kliknutím dalšího bodu, včetně aktuální délky.
+  const manualPreview=String($('nextEdgeLength').value||'').trim()!==''&&String($('nextEdgeAngle').value||'').trim()!=='';
+  const previewOrigin=pointerWorld||(manualPreview&&n>0?pts[n-1]:null);
+  if(mode==='draw'&&!closed&&previewOrigin&&n>0){
+   const preview=dynamicEndpoint(previewOrigin)||previewOrigin;
+   const last=q[n-1],cursor={x:DRAW_OX*viewZoom+preview.x*DRAW_SCALE*viewZoom+viewPanX,
+    y:H-(DRAW_OY+preview.y*DRAW_SCALE)*viewZoom+viewPanY};
+   const dx=cursor.x-last.x,dy=cursor.y-last.y,len=Math.hypot(dx,dy)||1;
+   const nx=dy/len,ny=-dx/len,midX=(last.x+cursor.x)/2+nx*16,midY=(last.y+cursor.y)/2+ny*16;
+   const dist=Math.hypot(preview.x-pts[n-1].x,preview.y-pts[n-1].y);
+   const angle=(Math.atan2(preview.y-pts[n-1].y,preview.x-pts[n-1].x)*180/Math.PI+360)%360;
+   $('labels').innerHTML+=`<line class="live-dim-line" x1="${last.x}" y1="${last.y}" x2="${cursor.x}" y2="${cursor.y}"/>
+    <text class="live-dlabel" x="${midX}" y="${midY}" text-anchor="middle">${shown(dist)} ${unitLength()} · ${fmt(angle)}°</text>`;
+  }
+  q.forEach((p,i)=>{$('vertices').innerHTML+=`<circle class="vertex" data-i="${i}" cx="${p.x}" cy="${p.y}" r="${selectedIndex===i?6:5}"/>`;$('labels').innerHTML+=`<text class="vlabel" x="${p.x+10}" y="${p.y-10}">V${i+1}</text>`;});
+  // Při tažení vrcholu zobraz kóty všech existujících navazujících stran.
+  // U otevřené čáry se vykreslí jen skutečně existující sousedé, u uzavřené
+  // geometrie také spojení přes první/poslední vrchol.
+  if(dragIndex>=0 && n>=2){
+   const i=dragIndex, pairs=[];
+   if(closed || i>0) pairs.push([(i-1+n)%n,i]);
+   if(closed || i<n-1) pairs.push([i,(i+1)%n]);
+   pairs.forEach(([a,b])=>{
+    const pa=q[a],pb=q[b];
+    const dx=pb.x-pa.x,dy=pb.y-pa.y,lenPx=Math.hypot(dx,dy)||1;
+    const nx=dy/lenPx,ny=-dx/lenPx;
+    const off=27, ax=pa.x+nx*off, ay=pa.y+ny*off, bx=pb.x+nx*off, by=pb.y+ny*off;
+    const worldLen=Math.hypot(pts[b].x-pts[a].x,pts[b].y-pts[a].y);
+    const tx=(ax+bx)/2+nx*5, ty=(ay+by)/2+ny*5;
+    $('labels').innerHTML+=`
+     <line class="live-dim-ext" x1="${pa.x}" y1="${pa.y}" x2="${ax}" y2="${ay}"/>
+     <line class="live-dim-ext" x1="${pb.x}" y1="${pb.y}" x2="${bx}" y2="${by}"/>
+     <line class="live-dim-line" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"/>
+     <text class="live-dlabel" x="${tx}" y="${ty}" text-anchor="middle">${shown(worldLen)} ${unitLength()}</text>`;
+   });
+  }
+  // Při posouvání vrcholu uzavřeného půdorysu se přímo v rohu
+  // zobrazuje živý vnitřní úhel včetně konkávních úhlů nad 180°.
+  if(closed && dragIndex>=0){$('labels').innerHTML+=liveDraggedCornerAngle(q);}
+  // Plocha a obvod jsou zobrazené přímo uprostřed uzavřeného půdorysu.
+  // Umístění zůstává uvnitř i u konkávních tvarů.
+  if(closed){$('labels').innerHTML+=renderCenterMeasurements(q);}
+ }
+ updateTables();
+ if(typeof areas!=='undefined'&&areas.length){captureActiveArea();updateProjectTotals();}
+ updateLoupe();
+ updateCloseShapeAction();
+}
+function updateLoupe(){
+ const g=$('loupe');
+ // Živá lupa je aktivní po celou dobu ručního obkreslování, nikoli jen
+ // při přibližování k prvnímu bodu při uzavírání místnosti.
+ if(!g || mode!=='draw' || closed || !pointerSvg || pts.length<1){if(g)g.style.display='none';return;}
+ const q=project(),target=pointerSvg,last=q[q.length-1];
+ const r=42,scale=4.5,viewSize=(2*r)/scale;
+ let cx=pointerSvg.x+64,cy=pointerSvg.y-64;
+ if(cx+r+8>790)cx=pointerSvg.x-64;
+ if(cy-r-8<8)cy=pointerSvg.y+64;
+ cx=Math.max(r+4,Math.min(796-r,cx));cy=Math.max(r+4,Math.min(496-r,cy));
+ const vx=target.x-viewSize/2,vy=target.y-viewSize/2;
+ const polyline=q.map(p=>`${p.x},${p.y}`).join(' ');
+ const color=(areas.find(a=>a.id===activeAreaId)?.color)||'#75aee8';
+ const liveLine=`<line x1="${last.x}" y1="${last.y}" x2="${target.x}" y2="${target.y}" stroke="#d97706" stroke-width="2.2" stroke-dasharray="3 1.5"/>`;
+ const dots=q.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="${i===0?5.2:4.2}" fill="${i===0?'#f59e0b':'#0f9f8f'}" fill-opacity=".22" stroke="${i===0?'#f59e0b':'#0f9f8f'}" stroke-width=".9"/><circle cx="${p.x}" cy="${p.y}" r="${i===0?2.8:2.2}" fill="${i===0?'#f59e0b':'#087e70'}" stroke="#fff" stroke-width=".8"/><text x="${p.x+4.5}" y="${p.y-4.5}" font-size="3.4" font-weight="800" fill="#173b69" stroke="#fff" stroke-width="1.1" paint-order="stroke">${i+1}</text>`).join('');
+ g.style.display='';
+ g.innerHTML=`
+  <circle cx="${cx}" cy="${cy}" r="${r+5}" fill="#173b69" stroke="#55d6c2" stroke-width="2.2"/>
+  <svg x="${cx-r}" y="${cy-r}" width="${2*r}" height="${2*r}" viewBox="${vx} ${vy} ${viewSize} ${viewSize}" preserveAspectRatio="none">
+   <defs><clipPath id="loupeLiveClip"><circle cx="${target.x}" cy="${target.y}" r="${r-1}"/></clipPath></defs>
+   <g clip-path="url(#loupeLiveClip)">
+    <rect x="${vx}" y="${vy}" width="${viewSize}" height="${viewSize}" fill="#fff"/>
+    <path d="M ${vx} ${target.y} H ${vx+viewSize} M ${target.x} ${vy} V ${vy+viewSize}" stroke="#d5dde7" stroke-width=".45" stroke-dasharray="1.5 1.5"/>
+    ${closed?`<polygon points="${polyline}" fill="${color}" fill-opacity=".35" stroke="${color}" stroke-width="1.8"/>`:''}
+    <polyline points="${polyline}" fill="none" stroke="#2463c5" stroke-width="1.8" stroke-linejoin="round"/>
+    ${liveLine}${dots}
+    <circle cx="${target.x}" cy="${target.y}" r="2.8" fill="#dc2626" stroke="#fff" stroke-width=".8"/>
+   </g>
+  </svg>
+  <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#fff" stroke-width="1.6"/>
+  <path d="M ${cx-8} ${cy} H ${cx+8} M ${cx} ${cy-8} V ${cy+8}" stroke="#dc2626" stroke-width="1.4"/>
+  <rect x="${cx-34}" y="${cy+r+6}" width="68" height="14" rx="7" fill="#173b69"/>
+  <text x="${cx}" y="${cy+r+16.5}" text-anchor="middle" fill="#fff" font-size="8" font-weight="700">ŽIVÁ LUPA 4,5×</text>`;
+}
+function measuredLengths(){
+ const n=pts.length, out=[];
+ for(let i=0;i<n;i++){
+  const a=pts[i],b=pts[(i+1)%n];
+  out.push(Math.hypot(b.x-a.x,b.y-a.y));
+ }
+ return out;
+}
+function initializeDesiredLengths(){
+ desiredLengths=measuredLengths();
+}
+function rebuildRectangle(length1,length2){
+ if(pts.length!==4)return false;
+ const p0={...pts[0]}, oldV2=pts[1],oldV3=pts[2];
+ let ux=oldV2.x-p0.x,uy=oldV2.y-p0.y,un=Math.hypot(ux,uy);
+ if(un<1e-9){ux=1;uy=0;un=1;}
+ ux/=un;uy/=un;
+ let px=-uy,py=ux;
+ const oldSide={x:oldV3.x-oldV2.x,y:oldV3.y-oldV2.y};
+ if(oldSide.x*px+oldSide.y*py<0){px=-px;py=-py;}
+ pts[0]=p0;
+ pts[1]={x:p0.x+ux*length1,y:p0.y+uy*length1};
+ pts[2]={x:pts[1].x+px*length2,y:pts[1].y+py*length2};
+ pts[3]={x:p0.x+px*length2,y:p0.y+py*length2};
+ return true;
+}
+function applySideLength(i, inputValue){
+ const n=pts.length, target=Number(inputValue)/unitFactor();
+ if(!closed||!Number.isInteger(i)||i<0||i>=n||!Number.isFinite(target)||target<=0||n<3){
+  render();return;
+ }
+ if(rectangleMode&&n===4){
+  const current=measuredLengths();
+  let l1=current[0],l2=current[1];
+  if(i===0||i===2)l1=target; else l2=target;
+  const knownBefore=desiredLengths.slice();
+  rebuildRectangle(l1,l2);
+  // Zachovej, které rozměry uživatel skutečně zadal. Protilehlá nezaškrtnutá
+  // strana zůstane neznámá v sekci 2, ale její délka se spočítá v sekci 3.
+  desiredLengths=knownBefore;
+  desiredLengths[i]=target;
+  const opposite=(i+2)%4;
+  if(knownBefore[opposite]!==null) desiredLengths[opposite]=target;
+  render();autoSave();commitHistory();return;
+ }
+ const a=pts[i], b=pts[(i+1)%n];
+ const dx=b.x-a.x,dy=b.y-a.y,current=Math.hypot(dx,dy);
+ if(current<1e-9){render();return;}
+ const ux=dx/current,uy=dy/current;
+ const newB={x:a.x+ux*target,y:a.y+uy*target};
+ const shift={x:newB.x-b.x,y:newB.y-b.y};
+ if(i<n-1){for(let j=i+1;j<n;j++){pts[j].x+=shift.x;pts[j].y+=shift.y;}}
+ else{for(let j=0;j<n-1;j++){pts[j].x+=shift.x;pts[j].y+=shift.y;}}
+ desiredLengths[i]=target;
+ render();autoSave();commitHistory();
+}
+function requestedRows(){
+ const n=pts.length;
+ return pts.map((p,i)=>{
+  const known=desiredLengths[i]!==null;
+  const len=known?desiredLengths[i]:measuredLengths()[i];
+  return `<tr>
+   <td><b>S${i+1}</b></td><td>V${i+1} → V${(i+1)%n+1}</td>
+   <td><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="known-side" data-side="${i}" ${known?'checked':''} style="width:auto"> Známý rozměr</label></td>
+   <td><input class="coord side-length" type="number" min="0.01" step="${unitFactor()===100?'1':'0.01'}" value="${known?shown(len):''}" placeholder="Dopočítat" data-side="${i}" ${known?'':'disabled'}></td>
+  </tr>`;
+ }).join('');
+}
+function actualRows(){
+ const actual=measuredLengths(), n=pts.length;
+ return actual.map((len,i)=>{
+  const known=desiredLengths[i]!==null;
+  const requested=known?desiredLengths[i]:len;
+  const delta=known?len-requested:0;
+  const tolerance=0.005;
+  const ok=!known||Math.abs(delta)<=tolerance;
+  const status=known?(ok?'Rozměr souhlasí':'Odchylka'):'Dopočteno z nákresu';
+  return `<tr>
+   <td><b>S${i+1}</b></td><td>V${i+1} → V${(i+1)%n+1}</td>
+   <td><b>${shown(len)} ${unitLength()}</b></td>
+   <td>${known?shown(delta)+' '+unitLength():'—'}</td>
+   <td><span style="color:${ok?'#17643a':'#a12b1c'};font-weight:bold">${status}</span></td>
+  </tr>`;
+ }).join('');
+}
+function bindDistanceInputs(root){
+ root.querySelectorAll('input.side-length').forEach(el=>el.addEventListener('change',e=>{
+  e.stopPropagation();
+  applySideLength(Number(e.currentTarget.dataset.side),e.currentTarget.value);
+ }));
+ root.querySelectorAll('input.known-side').forEach(el=>el.addEventListener('change',e=>{
+  const i=Number(e.currentTarget.dataset.side);
+  if(e.currentTarget.checked){
+   desiredLengths[i]=measuredLengths()[i];
+  }else{
+   desiredLengths[i]=null;
+  }
+  render();autoSave();commitHistory();
+ }));
+}
+function updateDiagonalTable(){
+ const body=$('diagonals');
+ if(!closed||pts.length!==4){
+  body.innerHTML='<tr><td colspan="5" class="muted">Kontrola úhlopříček je dostupná po uzavření čtyřúhelníku.</td></tr>';
+  return;
+ }
+ const pairs=[[0,2],[1,3]];
+ const labels=['V1 → V3','V2 → V4'];
+ body.innerHTML=pairs.map((pair,i)=>{
+  const a=pts[pair[0]],b=pts[pair[1]];
+  const calc=Math.hypot(b.x-a.x,b.y-a.y);
+  const measured=measuredDiagonals[i];
+  const has=measured!==null&&Number.isFinite(measured)&&measured>0;
+  const delta=has?calc-measured:null;
+  const tol=0.005;
+  const ok=has&&Math.abs(delta)<=tol;
+  const status=has?(ok?'Souhlasí':'Odchylka'):'Čeká na měření';
+  const color=has?(ok?'#17643a':'#a12b1c'):'#667085';
+  return `<tr>
+   <td><b>${labels[i]}</b></td>
+   <td>${shown(calc)} ${unitLength()}</td>
+   <td><input class="diag-measured" type="number" min="0.01" step="${unitFactor()===100?'1':'0.01'}" placeholder="Zadat měření" value="${has?shown(measured):''}" data-diag="${i}" style="max-width:145px"></td>
+   <td>${has?shown(delta)+' '+unitLength():'—'}</td>
+   <td><span style="color:${color};font-weight:bold">${status}</span></td>
+  </tr>`;
+ }).join('');
+ body.querySelectorAll('input.diag-measured').forEach(el=>el.addEventListener('change',e=>{
+  const i=Number(e.currentTarget.dataset.diag);
+  const raw=e.currentTarget.value.trim();
+  if(raw===''){measuredDiagonals[i]=null;}
+  else{
+   const value=Number(raw)/unitFactor();
+   measuredDiagonals[i]=Number.isFinite(value)&&value>0?value:null;
+  }
+  render();autoSave();commitHistory();
+ }));
+}
+function geometryDiagnosticResults(){
+ const n=pts.length, issues=[], badEdges=new Set();
+ if(!closed||n<3)return {issues:['Nejprve nakresli alespoň tři vrcholy a uzavři půdorys.'],badEdges,ok:false};
+ const finite=pts.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+ if(!finite)issues.push('Některý vrchol obsahuje neplatnou souřadnici.');
+ const eps=1e-7;
+ for(let i=0;i<n;i++){
+  const a=pts[i],b=pts[(i+1)%n];
+  const len=Math.hypot(b.x-a.x,b.y-a.y);
+  if(!Number.isFinite(len)||len<eps){issues.push(`Strana S${i+1} má nulovou nebo neplatnou délku.`);badEdges.add(i);}
+ }
+ for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+  const adjacent=j===i+1||(i===0&&j===n-1);
+  if(adjacent)continue;
+  if(Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y)<eps)
+   issues.push(`Vrcholy V${i+1} a V${j+1} leží ve stejném místě.`);
+ }
+ const crossings=[];
+ for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+  if(j===i+1||(i===0&&j===n-1))continue;
+  if(segmentsIntersect2(pts[i],pts[(i+1)%n],pts[j],pts[(j+1)%n])){
+   crossings.push([i,j]);badEdges.add(i);badEdges.add(j);
+  }
+ }
+ crossings.forEach(([i,j])=>issues.push(`Křížení stran S${i+1} a S${j+1}.`));
+ let twice=0,per=0;
+ for(let i=0;i<n;i++){
+  const a=pts[i],b=pts[(i+1)%n];twice+=a.x*b.y-b.x*a.y;per+=Math.hypot(b.x-a.x,b.y-a.y);
+ }
+ const area=Math.abs(twice)/2;
+ if(!Number.isFinite(area)||area<1e-8)issues.push('Plocha je nulová nebo příliš malá – zkontroluj polohu vrcholů.');
+ if(Number.isFinite(per)&&per>0){
+  const lens=measuredLengths();
+  const tol=0.005;
+  lens.forEach((v,i)=>{
+   if(desiredLengths[i]!==null&&Math.abs(v-desiredLengths[i])>tol){
+    issues.push(`Strana S${i+1}: skutečná délka ${shown(v)} ${unitLength()} neodpovídá zadané hodnotě ${shown(desiredLengths[i])} ${unitLength()}.`);
+    badEdges.add(i);
+   }
+  });
+ }
+ if(n===4&&Array.isArray(measuredDiagonals)){
+  [[0,2],[1,3]].forEach((pair,i)=>{
+   const measured=measuredDiagonals[i];
+   if(measured!==null&&Number.isFinite(measured)&&measured>0){
+    const calc=Math.hypot(pts[pair[1]].x-pts[pair[0]].x,pts[pair[1]].y-pts[pair[0]].y);
+    const tol=0.005;
+    if(Math.abs(calc-measured)>tol)issues.push(`Úhlopříčka ${i===0?'V1–V3':'V2–V4'} se liší od naměřené hodnoty o ${shown(calc-measured)} ${unitLength()}.`);
+   }
+  });
+ }
+ if(!issues.length)issues.push('Geometrie je v pořádku: žádné křížení stran, nulové hrany ani rozpory v zadaných rozměrech.');
+ return {issues,badEdges,ok:issues.length===1&&issues[0].startsWith('Geometrie je v pořádku')};
+}
+function updateGeometryDiagnostics(){
+ const list=$('geometryChecks');if(!list)return;
+ const result=geometryDiagnosticResults();
+ list.innerHTML=result.issues.map((msg,i)=>`<li style="margin:4px 0;color:${result.ok?'#17643a':(msg.startsWith('Nejprve')?'#64748b':'#a12b1c')};font-weight:${result.ok?'600':'500'}">${escapeText(msg)}</li>`).join('');
+ document.querySelectorAll('#edges .edge').forEach(el=>{
+  const i=Number(el.getAttribute('data-edge'));
+  el.classList.toggle('problem',dragIndex>=0 && result.badEdges.has(i));
+ });
+}
+
+function updateTables(){
+ const n=pts.length, available=closed&&n>=3;
+ updateDiagonalTable();
+ const empty='<tr><td colspan="5" class="muted">Nejprve nakresli a uzavři půdorys.</td></tr>';
+ if(!available){
+  $('coords').innerHTML='<tr><td colspan="3" class="muted">Nejprve nakresli a uzavři půdorys.</td></tr>';
+  $('sides').innerHTML=empty;
+  $('area').textContent='—';$('perimeter').textContent='—';$('count').textContent='0';$('closeX').textContent='—';$('closeY').textContent='—';
+  updateGeometryDiagnostics();
+  return;
+ }
+ if(desiredLengths.length!==n) initializeDesiredLengths();
+ $('coords').innerHTML=requestedRows();
+ bindDistanceInputs($('coords'));
+ $('sides').innerHTML=actualRows();
+ let per=0,dxsum=0,dysum=0,twice=0;
+ for(let i=0;i<n;i++){
+  const a=pts[i],b=pts[(i+1)%n],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+  per+=len;dxsum+=dx;dysum+=dy;twice+=a.x*b.y-b.x*a.y;
+ }
+ const area=Math.abs(twice)/2, areaShown=unitFactor()===100?area*10000:area;
+ $('area').textContent=fmt(areaShown)+' '+unitArea();
+ $('perimeter').textContent=shown(per)+' '+unitLength();$('count').textContent=n;
+ $('closeX').textContent=shown(dxsum)+' '+unitLength();$('closeY').textContent=shown(dysum)+' '+unitLength();
+ const valid=pts.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))&&area>0&&Math.abs(dxsum)<1e-8&&Math.abs(dysum)<1e-8;
+ const mismatches=measuredLengths().filter((v,i)=>desiredLengths[i]!==null&&Math.abs(v-desiredLengths[i])>0.005).length;
+ const computedCount=desiredLengths.filter(v=>v===null).length;
+ const knownCount=n-computedCount;
+ $('status').textContent=valid?(mismatches>0?`Kontrola zjistila ${mismatches} odchylku/odchylek u známých rozměrů.`:computedCount>0?`Půdorys uzavřen. ${knownCount} zadaných rozměrů, ${computedCount} stran dopočteno z nákresu.`:'Půdorys je uzavřen. Všechny zadané rozměry souhlasí se skutečnými délkami.'):'Pozor: zkontroluj vrcholy. Plocha musí být kladná a uzavření v obou osách nulové.';
+ $('status').className=valid&&mismatches===0?'status':'status bad';
+ updateGeometryDiagnostics();
+}
+
+function clone(obj){return JSON.parse(JSON.stringify(obj));}
+function captureActiveArea(){
+ const a=areas.find(x=>x.id===activeAreaId);if(!a)return;
+ a.pts=clone(pts);a.closed=closed;a.desiredLengths=clone(desiredLengths);
+ a.measuredDiagonals=clone(measuredDiagonals);a.rectangleMode=rectangleMode;a.centerOffset=clone(centerMeasurementOffset);
+}
+function restoreArea(a){
+ pts=clone(a.pts||[]);closed=!!a.closed;desiredLengths=clone(a.desiredLengths||[]);
+ measuredDiagonals=clone(a.measuredDiagonals||[null,null]);rectangleMode=!!a.rectangleMode;centerMeasurementOffset=clone(a.centerOffset??null);centerDragState=null;
+ $('rectangleMode').checked=rectangleMode;selectedIndex=-1;dragIndex=-1;dragStartScreen=null;dragHasMoved=false;
+ mode='draw';resetView();render();
+ $('hint').textContent=closed?'Načtena plocha „'+a.name+'“. Vrcholy můžeš přímo přetahovat.':'Plocha „'+a.name+'“ je připravena ke kreslení.';
+}
+function renderAreaSelect(){
+ const s=$('areaSelect');s.innerHTML=areas.map(a=>`<option value="${escapeText(a.id)}" ${a.id===activeAreaId?'selected':''}>${escapeText(a.name)}</option>`).join('');
+ const roomName=areas.find(a=>a.id===activeAreaId)?.roomName||areas[0]?.roomName||'2.01';
+ $('roomNameInput').value=roomName;
+ $('roomNameDescription').textContent=roomName;
+ $('areaTotalCount').textContent=areas.length;
+ updateProjectTotals();
+}
+function escapeText(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function areaStats(a){
+ const p=a.pts||[];if(!a.closed||p.length<3)return {area:0,perimeter:0};
+ let twice=0,per=0;
+ for(let i=0;i<p.length;i++){const x=p[i],y=p[(i+1)%p.length];twice+=x.x*y.y-y.x*x.y;per+=Math.hypot(y.x-x.x,y.y-x.y);}
+ return {area:Math.abs(twice)/2,perimeter:per};
+}
+function updateProjectTotals(){
+ const totals=areas.reduce((t,a)=>{const s=areaStats(a);t.area+=s.area;t.perimeter+=s.perimeter;return t;},{area:0,perimeter:0});
+ $('projectAreaTotal').textContent=fmt(totals.area*(unitFactor()===100?10000:1))+' '+unitArea();
+ $('projectPerimeterTotal').textContent=shown(totals.perimeter)+' '+unitLength();
+}
+function autoSave(){
+ captureActiveArea();
+ try{
+  localStorage.setItem('plochyProject_v1',JSON.stringify({format:'Kalkulacka ploch project',version:1,name:projectName,areas,activeAreaId,unit:$('unitSelect').value,showDimensions:$('showDimensions').checked}));
+  $('projectStatus').textContent='Automaticky uloženo v tomto prohlížeči.';
+ }catch(e){$('projectStatus').textContent='Automatické uložení není dostupné; použij Uložit projekt.';}
+}
+function historySnapshot(){
+ captureActiveArea();
+ return JSON.stringify({areas,activeAreaId,projectName});
+}
+function refreshHistoryUi(){
+ const undo=$('undoChangeBtn'),redo=$('redoChangeBtn'),status=$('historyStatus');
+ if(!undo||!redo||!status)return;
+ undo.disabled=historyIndex<=0;
+ redo.disabled=historyIndex<0||historyIndex>=historyStack.length-1;
+ const total=Math.max(0,historyStack.length-1);
+ status.textContent=`Historie: ${historyIndex+1} / ${historyStack.length} · max. ${HISTORY_LIMIT}`;
+ undo.title=historyIndex>0?'Vrátí poslední dokončenou změnu':'Není co vrátit';
+ redo.title=historyIndex<historyStack.length-1?'Zopakuje vrácenou změnu':'Není co zopakovat';
+}
+function initializeHistory(){
+ historyStack=[historySnapshot()];historyIndex=0;refreshHistoryUi();
+}
+function updateHistoryBaseline(){
+ const snapshot=historySnapshot();
+ if(historyIndex<0){historyStack=[snapshot];historyIndex=0;}
+ else{historyStack=historyStack.slice(0,historyIndex+1);historyStack[historyIndex]=snapshot;}
+ refreshHistoryUi();
+}
+function commitHistory(){
+ if(restoringHistory)return;
+ const snapshot=historySnapshot();
+ if(historyIndex>=0&&historyStack[historyIndex]===snapshot){refreshHistoryUi();return;}
+ historyStack=historyStack.slice(0,historyIndex+1);
+ historyStack.push(snapshot);
+ if(historyStack.length>HISTORY_LIMIT)historyStack.shift();
+ historyIndex=historyStack.length-1;refreshHistoryUi();
+}
+function restoreHistory(index){
+ if(index<0||index>=historyStack.length||index===historyIndex)return;
+ const snapshot=JSON.parse(historyStack[index]);
+ restoringHistory=true;
+ areas=snapshot.areas||[];projectName=snapshot.projectName||'Projekt';
+ activeAreaId=areas.some(a=>a.id===snapshot.activeAreaId)?snapshot.activeAreaId:(areas[0]?.id||null);
+ const active=areas.find(a=>a.id===activeAreaId);
+ if(active){restoreArea(active);renderAreaSelect();autoSave();}
+ historyIndex=index;restoringHistory=false;refreshHistoryUi();
+ $('projectStatus').textContent=index<historyStack.length-1?'Byla vrácena předchozí změna.':'Byla obnovena novější změna.';
+}
+$('undoChangeBtn').addEventListener('click',()=>restoreHistory(historyIndex-1));
+$('redoChangeBtn').addEventListener('click',()=>restoreHistory(historyIndex+1));
+window.addEventListener('keydown',e=>{
+ if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
+ if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
+ const key=String(e.key||'').toLowerCase();
+ if(key==='z'){
+  e.preventDefault();
+  if(e.shiftKey)restoreHistory(historyIndex+1);else restoreHistory(historyIndex-1);
+ }
+});
+
+function switchArea(id){
+ captureActiveArea();const a=areas.find(x=>x.id===id);if(!a)return;
+ activeAreaId=id;restoreArea(a);renderAreaSelect();autoSave();updateHistoryBaseline();
+}
+function addArea(){
+ captureActiveArea();
+ const current=areas.find(x=>x.id===activeAreaId);
+ const id='area-'+Date.now()+'-'+Math.floor(Math.random()*10000);
+ const usedNumbers=areas.map(x=>{const m=String(x.name||'').match(/^Plocha\s+(\d+)$/i);return m?Number(m[1]):0;});
+ const name='Plocha '+(Math.max(0,...usedNumbers)+1);
+ const a={id,name,roomName:current?.roomName||areas[0]?.roomName||'2.01',pts:[],closed:false,desiredLengths:[],measuredDiagonals:[null,null],rectangleMode:false,centerOffset:null,color:current?.color||'#75aee8'};
+ areas.push(a);activeAreaId=id;restoreArea(a);renderAreaSelect();autoSave();commitHistory();
+}
+
+function saveProjectFile(){
+ captureActiveArea();
+ const data={format:'Kalkulacka ploch project',version:1,name:projectName,areas,activeAreaId,unit:$('unitSelect').value,showDimensions:$('showDimensions').checked};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+ downloadBlob(blob,(projectName.replace(/[^a-z0-9_-]+/gi,'_')||'projekt')+'.json');
+ $('projectStatus').textContent='Projekt JSON je připraven ke stažení.';
+}
+function downloadBlob(blob,name){
+ // Nejdřív vytvoříme skutečný odkaz ke stažení. Některé prohlížeče
+ // (zejména mobilní Safari a vestavěné náhledy) ignorují čistě programové stažení.
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download=name;a.textContent='Stáhnout soubor: '+name;
+ a.style.display='inline-block';a.style.padding='10px 12px';a.style.margin='4px 8px 4px 0';
+ a.style.background='#e8eef7';a.style.color='#1e3b64';a.style.borderRadius='8px';a.style.fontWeight='bold';
+ const holder=$('downloadFallback');holder.innerHTML='';holder.appendChild(a);holder.style.display='block';
+ try{a.click();$('projectStatus').textContent='Export připraven. Pokud se soubor nestáhl automaticky, klikni na odkaz níže.';}
+ catch(err){$('projectStatus').textContent='Automatické stažení prohlížeč zablokoval. Použij odkaz níže.';}
+ // URL ponecháme platnou, dokud uživatel neprovede ruční stažení.
+ if(downloadBlob.lastUrl)URL.revokeObjectURL(downloadBlob.lastUrl);
+ downloadBlob.lastUrl=url;
+ return url;
+}
+function triangulatePolygon(poly){
+ // Ear clipping: rozdělí jednoduchý polygon (i konkávní) na trojúhelníky.
+ const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+ const signed=polygonSignedArea2(poly);
+ if(poly.length<3||Math.abs(signed)<1e-10)throw new Error('Plocha nemá platný obsah.');
+ const orientation=Math.sign(signed), ids=poly.map((_,i)=>i), triangles=[];
+ const inside=(p,a,b,c)=>{
+  const c1=cross(a,b,p)*orientation,c2=cross(b,c,p)*orientation,c3=cross(c,a,p)*orientation;
+  return c1>=-1e-9&&c2>=-1e-9&&c3>=-1e-9;
+ };
+ let guard=0;
+ while(ids.length>3&&guard++<poly.length*poly.length){
+  let clipped=false;
+  for(let j=0;j<ids.length;j++){
+   const ia=ids[(j-1+ids.length)%ids.length],ib=ids[j],ic=ids[(j+1)%ids.length];
+   const a=poly[ia],b=poly[ib],c=poly[ic];
+   if(cross(a,b,c)*orientation<=1e-9)continue;
+   let contains=false;
+   for(const id of ids){if(id===ia||id===ib||id===ic)continue;if(inside(poly[id],a,b,c)){contains=true;break;}}
+   if(contains)continue;
+   triangles.push([a,b,c]);ids.splice(j,1);clipped=true;break;
+  }
+  if(!clipped)throw new Error('Polygon nelze bezpečně rozložit na dílčí plochy. Zkontroluj průsečíky a vrcholy.');
+ }
+ if(ids.length===3)triangles.push(ids.map(i=>poly[i]));
+ return triangles;
+}
+function exportCsv(){
+ validateProjectForExport();
+ const rows=[];
+ areas.forEach((a,index)=>{
+  const p=a.pts||[];
+  if(!a.closed||p.length<3)return;
+  const sides=[];
+  // Vypiš každou hranu včetně poslední uzavírací strany (poslední vrchol → první).
+  for(let i=0;i<p.length;i++){
+   const from=p[i],to=p[(i+1)%p.length];
+   const length=Math.hypot(to.x-from.x,to.y-from.y)*unitFactor();
+   sides.push(length.toFixed(2).replace('.',','));
+  }
+  const name=a.roomName||('Místnost '+(index+1));
+  rows.push([name+' - '+(a.name||('Plocha '+(index+1))),sides.join('+')]);
+ });
+ // Uvozovky kolem názvu zůstanou viditelné i po otevření CSV v Excelu.
+ const csv='\ufeff'+rows.map(r=>'"""'+String(r[0]).replace(/"/g,'""')+'"" '+r[1]+'"').join('\r\n');
+ downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),'vykaz_stran_ploch.csv');
+ $('projectStatus').textContent='Výkaz ploch místnosti 2.01 je připraven ke stažení.';
+}
+function krosNumber(value){
+ return Number(value).toFixed(6).replace(/\.?0+$/,'').replace('.',',');
+}
+function krosAreaExpression(points){
+ // Shoelace formula preserves the real polygon area, including concave rooms.
+ const terms=[];
+ for(let i=0;i<points.length;i++){
+  const a=points[i],b=points[(i+1)%points.length];
+  terms.push(`(${krosNumber(a.x)}*${krosNumber(b.y)}-${krosNumber(b.x)}*${krosNumber(a.y)})`);
+ }
+ return `ABS((${terms.join('+')})/2)`;
+}
+
+function loadProjectData(data){
+ // Nejdříve ověř celý soubor do dočasné proměnné; při chybě zůstane otevřený projekt beze změny.
+ const validatedAreas=validateProjectData(data);
+ areas=validatedAreas;projectName=String(data.name||'Projekt').slice(0,160);
+ activeAreaId=areas.some(a=>a.id===data.activeAreaId)?data.activeAreaId:areas[0].id;
+ $('unitSelect').value=data.unit==='cm'?'cm':'m';$('showDimensions').checked=data.showDimensions!==false;
+ updateUnitLabels();const a=areas.find(x=>x.id===activeAreaId);restoreArea(a);renderAreaSelect();autoSave();if(historyStack.length)initializeHistory();
+}
+function polygonSignedArea2(poly){
+ let area2=0;
+ for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];area2+=a.x*b.y-b.x*a.y;}
+ return area2;
+}
+function interiorAngleAt(poly,index){
+ const n=poly.length;if(n<3||index<0||index>=n)return null;
+ const area2=polygonSignedArea2(poly);if(Math.abs(area2)<1e-10)return null;
+ const c=poly[index],prev=poly[(index-1+n)%n],next=poly[(index+1)%n];
+ const ix=c.x-prev.x,iy=c.y-prev.y,ox=next.x-c.x,oy=next.y-c.y;
+ if(Math.hypot(ix,iy)<1e-10||Math.hypot(ox,oy)<1e-10)return null;
+ const turn=Math.atan2(ix*oy-iy*ox,ix*ox+iy*oy);
+ const sign=area2>0?1:-1;
+ let inner=Math.PI-sign*turn;
+ while(inner<=0)inner+=Math.PI*2;
+ while(inner>=Math.PI*2)inner-=Math.PI*2;
+ return inner*180/Math.PI;
+}
+function orientation2(a,b,c){return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);}
+function onSegment2(a,b,p){return p.x>=Math.min(a.x,b.x)-1e-9&&p.x<=Math.max(a.x,b.x)+1e-9&&p.y>=Math.min(a.y,b.y)-1e-9&&p.y<=Math.max(a.y,b.y)+1e-9;}
+function segmentsIntersect2(a,b,c,d){
+ const o1=orientation2(a,b,c),o2=orientation2(a,b,d),o3=orientation2(c,d,a),o4=orientation2(c,d,b);
+ if(((o1>1e-9&&o2< -1e-9)||(o1< -1e-9&&o2>1e-9))&&((o3>1e-9&&o4< -1e-9)||(o3< -1e-9&&o4>1e-9)))return true;
+ if(Math.abs(o1)<=1e-9&&onSegment2(a,b,c))return true;
+ if(Math.abs(o2)<=1e-9&&onSegment2(a,b,d))return true;
+ if(Math.abs(o3)<=1e-9&&onSegment2(c,d,a))return true;
+ if(Math.abs(o4)<=1e-9&&onSegment2(c,d,b))return true;
+ return false;
+}
+function polygonIsSimple(poly){
+ const n=poly.length;
+ for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+  if(j===i||j===(i+1)%n||i===(j+1)%n)continue;
+  if(i===0&&j===n-1)continue;
+  if(segmentsIntersect2(poly[i],poly[(i+1)%n],poly[j],poly[(j+1)%n]))return false;
+ }
+ return true;
+}
+function validateClosedArea(a,index=0){
+ const label=a?.name||('Plocha '+(index+1)),p=a?.pts;
+ if(!a?.closed)return {ok:true,skip:true};
+ if(!Array.isArray(p)||p.length<3)return {ok:false,message:`${label}: uzavřená plocha musí mít alespoň 3 vrcholy.`};
+ if(p.length>5000)return {ok:false,message:`${label}: příliš mnoho vrcholů (maximum 5 000).`};
+ for(let i=0;i<p.length;i++){
+  const q=p[i];
+  if(!q||!Number.isFinite(q.x)||!Number.isFinite(q.y))return {ok:false,message:`${label}: vrchol V${i+1} nemá platné souřadnice.`};
+  const next=p[(i+1)%p.length];
+  if(Math.hypot(next.x-q.x,next.y-q.y)<1e-8)return {ok:false,message:`${label}: strana V${i+1}–V${(i+1)%p.length+1} má nulovou nebo zanedbatelnou délku.`};
+ }
+ if(Math.abs(polygonSignedArea2(p))<1e-8)return {ok:false,message:`${label}: plocha je nulová nebo příliš malá.`};
+ if(!polygonIsSimple(p))return {ok:false,message:`${label}: obrys se kříží nebo se dotýkají ne sousední hrany.`};
+ return {ok:true};
+}
+function validateProjectForExport(){
+ captureActiveArea();
+ const errors=[];
+ areas.forEach((a,i)=>{const result=validateClosedArea(a,i);if(!result.ok)errors.push(result.message);});
+ if(errors.length)throw new Error('Export byl zastaven. Oprav nejprve tyto plochy:\n• '+errors.join('\n• '));
+ return true;
+}
+function validateProjectData(data){
+ if(!data||!['Kalkulacka ploch project','Kalkulacka SDK project'].includes(data.format)||!Array.isArray(data.areas)||!data.areas.length)throw new Error('Soubor nemá platný formát projektu nebo neobsahuje žádné plochy.');
+ if(data.areas.length>500)throw new Error('Projekt obsahuje více než 500 ploch; načtení bylo zastaveno.');
+ const ids=new Set();
+ const normalized=data.areas.map((a,i)=>{
+  if(!a||typeof a!=='object')throw new Error(`Plocha ${i+1} nemá platný záznam.`);
+  const id=String(a.id||'');
+  if(!id||ids.has(id))throw new Error(`Plocha ${i+1} má prázdný nebo duplicitní identifikátor.`);
+  ids.add(id);
+  if(!Array.isArray(a.pts)||a.pts.length>5000)throw new Error(`${a.name||'Plocha '+(i+1)}: seznam vrcholů není platný.`);
+  const pts=a.pts.map((q,j)=>{
+   if(!q||!Number.isFinite(q.x)||!Number.isFinite(q.y))throw new Error(`${a.name||'Plocha '+(i+1)}: vrchol V${j+1} má neplatné souřadnice.`);
+   return {x:q.x,y:q.y};
+  });
+  return {...a,id,name:String(a.name||('Plocha '+(i+1))).slice(0,120),roomName:String(a.roomName||data.roomName||'2.01').trim().slice(0,40)||'2.01',pts,closed:!!a.closed,desiredLengths:Array.isArray(a.desiredLengths)?a.desiredLengths:[],measuredDiagonals:Array.isArray(a.measuredDiagonals)?a.measuredDiagonals:[null,null]};
+ });
+ return normalized;
+}
+function openAngleEditor(index){
+ if(!closed||pts.length<3||!Number.isInteger(index))return;
+ const current=interiorAngleAt(pts,index);if(current===null)return;
+ editingAngleVertex=index;
+ const next=(index+1)%pts.length;
+ $('angleEditTitle').textContent=`Nastavit vnitřní úhel V${index+1}`;
+ $('angleEditHelp').textContent=`Poloha vrcholu V${next+1} se upraví. Délka strany V${index+1}–V${next+1} zůstane zachována; ostatní navazující geometrie se přizpůsobí.`;
+ $('angleEditValue').value=fmt(current);
+ $('angleEditError').textContent='';
+ $('angleEditOverlay').hidden=false;
+ $('angleEditValue').focus();$('angleEditValue').select();
+}
+function closeAngleEditor(){
+ $('angleEditOverlay').hidden=true;editingAngleVertex=null;$('angleEditError').textContent='';
+}
+function applyInteriorAngle(index,degrees){
+ const n=pts.length;
+ if(!closed||n<3||index<0||index>=n)return {ok:false,message:'Úhel lze upravovat pouze u uzavřeného půdorysu.'};
+ if(!Number.isFinite(degrees)||degrees<=0||degrees>=360)return {ok:false,message:'Zadej úhel větší než 0° a menší než 360°.'};
+ const oldArea2=polygonSignedArea2(pts),orientation=oldArea2>0?1:-1;
+ if(Math.abs(oldArea2)<1e-10)return {ok:false,message:'Půdorys nemá platnou plochu; úhel nelze nastavit.'};
+ const prev=(index-1+n)%n,next=(index+1)%n,c=pts[index],p=pts[prev],z=pts[next];
+ const incomingX=c.x-p.x,incomingY=c.y-p.y;
+ const outgoingLength=Math.hypot(z.x-c.x,z.y-c.y);
+ if(outgoingLength<1e-9||Math.hypot(incomingX,incomingY)<1e-9)return {ok:false,message:'Nelze upravit úhel u nulové délky strany.'};
+ // Zachováme délku předchozí i následující hrany V(index)–V(next).
+ // Změníme pouze směr následující hrany, a tím polohu dalšího vrcholu.
+ const incomingHeading=Math.atan2(incomingY,incomingX);
+ const targetTurn=orientation*(Math.PI-degrees*Math.PI/180);
+ const outgoingHeading=incomingHeading+targetTurn;
+ const candidate=clone(pts);
+ candidate[next]={x:c.x+Math.cos(outgoingHeading)*outgoingLength,y:c.y+Math.sin(outgoingHeading)*outgoingLength};
+ const newArea2=polygonSignedArea2(candidate);
+ if(Math.abs(newArea2)<1e-8||newArea2*oldArea2<=0)return {ok:false,message:'Tento úhel by půdorys zploštil nebo převrátil. Zkus jinou hodnotu.'};
+ if(!polygonIsSimple(candidate))return {ok:false,message:'Tento úhel by způsobil křížení hran. Zkus jinou hodnotu.'};
+ pts=candidate;
+ selectedIndex=index;
+ render();autoSave();commitHistory();
+ return {ok:true,next};
+}
+$('angleEditCancel').addEventListener('click',closeAngleEditor);
+$('angleEditSave').addEventListener('click',()=>{
+ if(editingAngleVertex===null)return;
+ const value=Number(String($('angleEditValue').value).trim().replace(',','.'));
+ const result=applyInteriorAngle(editingAngleVertex,value);
+ if(!result.ok){$('angleEditError').textContent=result.message;$('angleEditValue').focus();return;}
+ const vertex=editingAngleVertex+1;
+ closeAngleEditor();
+ $('hint').textContent=`Vnitřní úhel V${vertex} byl nastaven na ${fmt(value)}°. Délka následující strany zůstala zachována.`;
+});
+$('angleEditValue').addEventListener('keydown',e=>{
+ if(e.key==='Enter')$('angleEditSave').click();
+ if(e.key==='Escape')closeAngleEditor();
+});
+$('angleEditOverlay').addEventListener('pointerdown',e=>{if(e.target===$('angleEditOverlay'))closeAngleEditor();});
+
+function svgPointFromEvent(e){
+ const pt=svg.createSVGPoint();
+ pt.x=e.clientX;pt.y=e.clientY;
+ const matrix=svg.getScreenCTM();
+ return matrix?pt.matrixTransform(matrix.inverse()):{x:0,y:0};
+}
+function svgPointFromEvent(e){
+ const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
+ const matrix=svg.getScreenCTM();return matrix?pt.matrixTransform(matrix.inverse()):{x:0,y:0};
+}
+function dragTransform(){
+ return {s:DRAW_SCALE*viewZoom,ox:DRAW_OX*viewZoom,oy:DRAW_OY*viewZoom,z:viewZoom,px:viewPanX,py:viewPanY};
+}
+// Editace rozměru přímo kliknutím na kótu.
+// Používáme vlastní HTML dialog místo window.prompt (ten může být v některých
+// prohlížečích / vložených oknech blokovaný). Událost obsluhuje přímo skupina
+// popisků a zastaví ji dřív, než ji zachytí kreslicí plocha.
+let editingDimensionSide=null;
+function openDimensionEditor(side){
+ if(!closed || !Number.isInteger(side) || side<0 || side>=pts.length)return;
+ editingDimensionSide=side;
+ $('dimensionEditTitle').textContent=`Upravit délku strany S${side+1}`;
+ $('dimensionEditUnit').textContent=unitLength();
+ $('dimensionEditValue').value=shown(measuredLengths()[side]);
+ $('dimensionEditOverlay').hidden=false;
+ $('dimensionEditValue').focus();
+ $('dimensionEditValue').select();
+}
+function closeDimensionEditor(){
+ $('dimensionEditOverlay').hidden=true;
+ editingDimensionSide=null;
+}
+$('labels').addEventListener('pointerdown',e=>{
+ const tagged=e.target && e.target.closest ? e.target.closest('g.dimension-hit[data-side]') : null;
+ if(!tagged)return;
+ const side=Number(tagged.getAttribute('data-side'));
+ if(!Number.isInteger(side))return;
+ e.preventDefault();
+ e.stopPropagation();
+ e.stopImmediatePropagation();
+ openDimensionEditor(side);
+},true);
+$('dimensionEditCancel').addEventListener('click',closeDimensionEditor);
+$('dimensionEditSave').addEventListener('click',()=>{
+ if(editingDimensionSide===null)return;
+ const value=Number(String($('dimensionEditValue').value).trim().replace(',','.'));
+ if(!Number.isFinite(value)||value<=0){
+  $('dimensionEditError').textContent='Zadej kladnou číselnou hodnotu.';
+  $('dimensionEditValue').focus();return;
+ }
+ const side=editingDimensionSide;
+ closeDimensionEditor();
+ applySideLength(side,value);
+ $('hint').textContent=`Strana S${side+1} byla upravena na ${value} ${unitLength()}.`;
+});
+$('dimensionEditValue').addEventListener('keydown',e=>{
+ if(e.key==='Enter')$('dimensionEditSave').click();
+ if(e.key==='Escape')closeDimensionEditor();
+});
+
+svg.addEventListener('pointerdown',e=>{
+ e.preventDefault();
+ const screenPoint=svgPointFromEvent(e);
+ const centerTarget=e.target&&e.target.closest?e.target.closest('.measurement-center'):null;
+ if(centerTarget&&closed){
+  const initial=centerMeasurementOffset?{x:centerMeasurementOffset.x,y:centerMeasurementOffset.y}:{x:0,y:0};
+  centerDragState={start:{x:screenPoint.x,y:screenPoint.y},initial};
+  centerTarget.style.cursor='grabbing';svg.setPointerCapture(e.pointerId);
+  $('hint').textContent='Posouváš středový rámeček. Přetáhni ho na vhodné místo uvnitř obrazce a uvolni tlačítko/prst.';
+  return;
+ }
+ const q=project();
+ // Vrchol vybíráme podle skutečné vzdálenosti kurzoru od bodu.
+ // Není závislé na tom, zda prohlížeč jako event.target vrátí kruh, čáru,
+ // popisek nebo polygon pod bodem.
+ let nearest=-1,nearestDist=Infinity;
+ q.forEach((p,i)=>{
+  const d=Math.hypot(screenPoint.x-p.x,screenPoint.y-p.y);
+  if(d<nearestDist){nearestDist=d;nearest=i;}
+ });
+ const hitVertex=nearest>=0 && nearestDist<=22;
+
+ // V režimu kreslení má kliknutí na první bod po třech vrcholech význam uzavření.
+ if(mode==='draw'&&!closed&&pts.length>=3&&hitVertex&&nearest===0){
+  closed=true;mode='draw';selectedIndex=-1;centerMeasurementOffset=null;
+  $('hint').textContent='Tvar byl uzavřen spojením posledního bodu s prvním bodem V1. Vrcholy můžeš kdykoliv přetahovat.';
+  render();autoSave();commitHistory();return;
+ }
+
+ // Tažení konkrétního bodu má přednost před posunem celé plochy i před přidáním bodu.
+ if(hitVertex){
+  dragIndex=nearest;selectedIndex=nearest;dragMap=dragTransform();panState=null;
+  dragStartScreen={x:screenPoint.x,y:screenPoint.y};dragHasMoved=false;
+  svg.setPointerCapture(e.pointerId);
+  $('hint').textContent=closed?`Vrchol V${nearest+1}: přetáhni pro posunutí, nebo pouze klikni a zadej přesný vnitřní úhel.`:`Vybrán vrchol V${nearest+1}. Táhni bodem pro jeho samostatné posunutí.`;
+  render();return;
+ }
+
+ if(e.button===1||spaceDown||mode==='pan'){
+  panState={x:e.clientX,y:e.clientY,px:viewPanX,py:viewPanY,pointerId:e.pointerId};
+  svg.setPointerCapture(e.pointerId);return;
+ }
+ if(mode==='draw'&&!closed){
+  const raw=screenToWorld(screenPoint),smart=smartDrawingPoint(raw);
+  let p=smart.point;
+  if(pts.length>0){
+   const hasManual=String($('nextEdgeLength').value||'').trim()!==''||String($('nextEdgeAngle').value||'').trim()!=='';
+   if(hasManual){
+    p=dynamicEndpoint(smart.point);
+    if(!p){$('hint').textContent='Zadaná délka nebo úhel nejsou platné. Doplň obě hodnoty, nebo klikni na „Obnovit podle kurzoru“.';return;}
+   }
+  }
+  pts.push({x:Number(p.x.toFixed(4)),y:Number(p.y.toFixed(4))});
+  updateSmartStatus(pts.length>1?'Přesná délka a úhel použity':smart.status);
+  resetDynamicInputs();pointerWorld=null;selectedIndex=pts.length-1;render();autoSave();commitHistory();
+ }
+});
+svg.addEventListener('pointermove',e=>{
+ if(centerDragState){
+  const p=svgPointFromEvent(e);
+  centerMeasurementOffset={x:centerDragState.initial.x+(p.x-centerDragState.start.x),y:centerDragState.initial.y+(p.y-centerDragState.start.y)};
+  render();return;
+ }
+ if(mode==='draw'&&!closed&&dragIndex<0&&!panState){
+  pointerSvg=svgPointFromEvent(e);
+  const smart=smartDrawingPoint(screenToWorld(pointerSvg));
+  pointerWorld=smart.point;updateDynamicInputs(pointerWorld);updateSmartStatus(smart.status);
+  render();
+ }
+ if(panState){
+  viewPanX=panState.px+(e.clientX-panState.x)*svg.clientWidth/800;
+  viewPanY=panState.py+(e.clientY-panState.y)*svg.clientWidth/800;
+  render();return;
+ }
+ if(dragIndex<0||!dragMap)return;
+ const p=svgPointFromEvent(e);
+ if(!dragHasMoved){
+  const delta=dragStartScreen?Math.hypot(p.x-dragStartScreen.x,p.y-dragStartScreen.y):0;
+  if(delta<4)return; // Krátký klik na vrchol otevře zadání úhlu, nikoli tažení.
+  dragHasMoved=true;
+ }
+ const world=screenToWorld(p);
+ pts[dragIndex]={x:Number(world.x.toFixed(2)),y:Number(world.y.toFixed(2))};
+ const n=pts.length,prev=(dragIndex-1+n)%n,next=(dragIndex+1)%n;
+ const d1=Math.hypot(pts[dragIndex].x-pts[prev].x,pts[dragIndex].y-pts[prev].y);
+ const d2=Math.hypot(pts[next].x-pts[dragIndex].x,pts[next].y-pts[dragIndex].y);
+ $('hint').textContent=closed?`Posouváš V${dragIndex+1}. Aktuální vzdálenosti: V${prev+1}–V${dragIndex+1}: ${shown(d1)} ${unitLength()} | V${dragIndex+1}–V${next+1}: ${shown(d2)} ${unitLength()}. Uvolni tlačítko/prst pro umístění bodu.`:'Posouváš vrchol. Uvolni tlačítko/prst pro umístění bodu.';
+ render();
+});
+function endDrag(e){
+ if(centerDragState){
+  centerDragState=null;render();autoSave();commitHistory();
+  $('hint').textContent='Poloha středového rámečku byla upravena. Kdykoliv ho můžeš znovu přetáhnout.';
+  return;
+ }
+ const wasDragging=dragIndex>=0;
+ const clickedVertex=dragIndex,wasMoved=dragHasMoved;
+ dragIndex=-1;dragMap=null;panState=null;pointerWorld=null;pointerSvg=null;
+ dragStartScreen=null;dragHasMoved=false;
+ if(wasDragging){
+  render();
+  if(!wasMoved&&e&&e.type==='pointerup'&&closed){
+   openAngleEditor(clickedVertex);
+  }else if(wasMoved){
+   $('hint').textContent='Vrchol byl posunut. Můžeš ho znovu vybrat a jemně doladit tažením; aktuální délky stran jsou zobrazené v kótách a tabulce.';
+   autoSave();commitHistory();
+  }
+ }
+}
+svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
+svg.addEventListener('pointerleave',e=>{
+ if(!panState&&dragIndex<0){
+  const enteringSmartControls=e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('.smart-drawing');
+  if(enteringSmartControls)return;
+  pointerSvg=null;pointerWorld=null;render();
+ }
+});
+svg.addEventListener('wheel',e=>{
+ e.preventDefault();
+ const p=svgPointFromEvent(e);
+ zoomAt(e.deltaY<0?1.2:1/1.2,p.x,p.y);
+},{passive:false});
+svg.addEventListener('dblclick',e=>{
+ const p=svgPointFromEvent(e);
+ zoomAt(1.5,p.x,p.y);
+});
+window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){spaceDown=true;e.preventDefault();}});
+window.addEventListener('keyup',e=>{if(e.code==='Space')spaceDown=false;});
+$('unitSelect').addEventListener('change',()=>{$('nextEdgeUnit').textContent=unitLength();});
+function insertNextPoint(){
+ if(mode!=='draw'||closed||!pts.length){
+  $('hint').textContent=closed?'Půdorys je již uzavřen. Pro pokračování použij „Vrátit poslední bod“, čímž znovu otevřeš kreslení.':'Nejprve přidej první bod půdorysu.';
+  return false;
+ }
+ const hasManual=String($('nextEdgeLength').value||'').trim()!==''||String($('nextEdgeAngle').value||'').trim()!=='';
+ let p=null;
+ if(hasManual){
+  p=dynamicEndpoint(pointerWorld||pts[pts.length-1]);
+  if(!p){$('hint').textContent='Zadej kladnou délku i platný úhel. Například délka 2,50 m a úhel 90°.';return false;}
+ }else if(pointerWorld){
+  p=smartDrawingPoint(pointerWorld).point;
+ }else{
+  $('hint').textContent='Nejprve najeď kurzorem do kreslicí plochy, nebo zadej délku a úhel.';return false;
+ }
+ pts.push({x:Number(p.x.toFixed(4)),y:Number(p.y.toFixed(4))});
+ resetDynamicInputs();pointerWorld=null;selectedIndex=pts.length-1;render();autoSave();commitHistory();
+ $('hint').textContent=hasManual?'Bod byl vložen podle zadané délky a úhlu. Pokračuj dalším bodem.':'Bod byl vložen podle polohy kurzoru.';
+ updateSmartStatus(hasManual?'Použita zadaná délka a úhel':'Bod vložen podle kurzoru');
+ return true;
+}
+$('insertNextPointBtn').onclick=insertNextPoint;
+$('clearNextEdgeLength').onclick=()=>{resetDynamicInputs();updateSmartStatus('Délka a úhel se znovu řídí kurzorem');if(pointerSvg){const smart=smartDrawingPoint(screenToWorld(pointerSvg));pointerWorld=smart.point;updateDynamicInputs(pointerWorld);}render();};
+['nextEdgeLength','nextEdgeAngle'].forEach(id=>$(id).addEventListener('input',e=>{
+ e.target.dataset.manual='1';
+ updateSmartStatus('Ruční zadání – náhled se přepočítává');
+ if(closed){$('hint').textContent='Půdorys je uzavřen. Délka a úhel se používají pouze při kreslení další strany otevřeného půdorysu.';}
+ render();
+}));
+$('nextEdgeAngle').addEventListener('keydown',e=>{if(e.key==='Enter')insertNextPoint();});
+$('nextEdgeLength').addEventListener('keydown',e=>{if(e.key==='Enter')$('nextEdgeAngle').focus();});
+$('zoomInBtn').onclick=()=>zoomAt(1.25);
+$('zoomOutBtn').onclick=()=>zoomAt(0.8);
+$('resetViewBtn').onclick=resetView;
+$('closeBtn').onclick=()=>{if(pts.length>=3&&!closed){closed=true;mode='draw';centerMeasurementOffset=null;initializeDesiredLengths();$('hint').textContent='Tvar je uzavřen. Vrcholy můžeš přímo přetahovat; délky stran upravíš kliknutím na kótu.';resetView();render();autoSave();commitHistory();}else if(pts.length<3){$('hint').textContent='Pro uzavření jsou potřeba alespoň 3 vrcholy. Přidej další body.';updateCloseShapeAction();}};
+$('drawBtn').onclick=()=>{mode='draw';selectedIndex=-1;$('hint').textContent=closed?'Půdorys je uzavřen. Vrcholy můžeš přímo přetahovat a délky upravovat kliknutím na kóty.':'Režim kreslení: klikáním přidávej vrcholy. Vrcholy lze kdykoliv přímo přetahovat.';render();};
+$('panBtn').onclick=()=>{mode='pan';$('hint').textContent='Režim posunu plochy: táhni mimo vrcholy a posuň celý půdorys. Vrcholy lze stále samostatně přetahovat. Pro návrat klikni na „Režim kreslení“.';};
+$('undoBtn').onclick=()=>{
+ if(!pts.length){$('hint').textContent='Není žádný bod, který by bylo možné vrátit.';return;}
+ // Uzavření tvaru je samostatný krok: první stisk po uzavření pouze
+ // znovu otevře kreslení a ponechá všechny vrcholy. Další stisk odstraní
+ // právě jeden poslední vrchol. Tím se nikdy nesmažou dva kroky najednou.
+ if(closed){
+  closed=false;mode='draw';selectedIndex=-1;dragIndex=-1;dragMap=null;panState=null;dragStartScreen=null;dragHasMoved=false;
+  pointerWorld=null;pointerSvg=null;desiredLengths=[];measuredDiagonals=[null,null];
+  $('hint').textContent='Uzavření bylo vráceno. Všechny vrcholy zůstaly zachované; můžeš pokračovat v kreslení.';
+  render();autoSave();commitHistory();return;
+ }
+ pts.pop();selectedIndex=-1;dragIndex=-1;dragMap=null;panState=null;
+ pointerWorld=null;pointerSvg=null;desiredLengths=[];measuredDiagonals=[null,null];
+ $('hint').textContent='Byl vrácen přesně jeden poslední bod. Můžeš pokračovat v kreslení.';
+ render();autoSave();commitHistory();
+};
+$('deleteBtn').onclick=()=>{if(selectedIndex>=0&&pts.length>3){pts.splice(selectedIndex,1);selectedIndex=-1;closed=closed&&pts.length>=3;render();autoSave();commitHistory();}else if(selectedIndex>=0){$('hint').textContent='Půdorys musí mít alespoň 3 vrcholy.';}};
+$('clearBtn').onclick=()=>{pts=[];desiredLengths=[];measuredDiagonals=[null,null];closed=false;mode='draw';selectedIndex=-1;viewZoom=1;viewPanX=0;viewPanY=0;updateZoomReadout();render();autoSave();commitHistory();$('hint').textContent='Režim kreslení: klikáním přidávej vrcholy.';};
+// Knihovna geometrických předloh je inicializována níže.
+
+const SHAPE_INFO={
+ rectangle:{name:'Obdélník',help:'Zadej šířku W a výšku H.',a:false,b:false},
+ square:{name:'Čtverec',help:'Zadej délku strany do pole Šířka W. Výška se použije shodná.',a:false,b:false},
+ rightTriangle:{name:'Pravoúhlý trojúhelník',help:'Šířka W a výška H tvoří odvěsny.',a:false,b:false},
+ isoscelesTriangle:{name:'Rovnoramenný trojúhelník',help:'Šířka W je základna, výška H je kolmá výška.',a:false,b:false},
+ equilateralTriangle:{name:'Rovnostranný trojúhelník',help:'Zadej délku strany do Šířky W; výška se dopočítá automaticky.',a:false,b:false},
+ trapezoid:{name:'Lichoběžník',help:'A = délka horní základny, B = odsazení horní základny od levého okraje.',a:true,b:true,aLabel:'Horní základna A',bLabel:'Odsazení B'},
+ parallelogram:{name:'Rovnoběžník',help:'A = vodorovný posun horní strany vůči dolní.',a:true,b:false,aLabel:'Posun horní strany A'},
+ rhombus:{name:'Kosočtverec',help:'Šířka a výška určují úhlopříčky kosočtverce.',a:false,b:false},
+ diamond:{name:'Deltoid / diamant',help:'Šířka a výška určují úhlopříčky deltoidu.',a:false,b:false},
+ pentagon:{name:'Pětiúhelník',help:'Šířka W a výška H určují obálku pravidelného mnohoúhelníku.',a:false,b:false},
+ hexagon:{name:'Šestiúhelník',help:'Šířka W a výška H určují obálku šestiúhelníku.',a:false,b:false},
+ octagon:{name:'Osmiúhelník',help:'Šířka W a výška H určují obálku osmiúhelníku.',a:false,b:false},
+ decagon:{name:'Desetiúhelník',help:'Šířka W a výška H určují obálku desetiúhelníku.',a:false,b:false},
+ circle:{name:'Kruh',help:'Šířka W určuje průměr kruhu. Kruh je aproximován 32 vrcholy, které lze upravovat.',a:false,b:false},
+ ellipse:{name:'Elipsa',help:'Šířka W a výška H určují hlavní a vedlejší osu elipsy. Tvar tvoří 32 upravitelných vrcholů.',a:false,b:false},
+ L:{name:'Půdorys L',help:'A = šířka výřezu, B = hloubka výřezu v pravém horním rohu.',a:true,b:true,aLabel:'Šířka výřezu A',bLabel:'Hloubka výřezu B'},
+ Lmirror:{name:'Půdorys L – zrcadlový',help:'A = šířka výřezu, B = hloubka výřezu. Výřez bude vlevo.',a:true,b:true,aLabel:'Šířka výřezu A',bLabel:'Hloubka výřezu B'},
+ Lrotate:{name:'Půdorys L – otočený',help:'A = šířka výřezu, B = hloubka výřezu. Výřez bude dole.',a:true,b:true,aLabel:'Šířka výřezu A',bLabel:'Hloubka výřezu B'},
+ LrotateMirror:{name:'Půdorys L – otočený zrcadlově',help:'A = šířka výřezu, B = hloubka výřezu. Výřez bude vlevo dole.',a:true,b:true,aLabel:'Šířka výřezu A',bLabel:'Hloubka výřezu B'},
+ U:{name:'Půdorys U',help:'A = tloušťka bočních ramen, B = tloušťka spodního propojení.',a:true,b:true,aLabel:'Tloušťka ramen A',bLabel:'Tloušťka dna B'},
+ Udown:{name:'Půdorys U – otočený',help:'A = tloušťka bočních ramen, B = tloušťka horního propojení.',a:true,b:true,aLabel:'Tloušťka ramen A',bLabel:'Tloušťka propojení B'},
+ C:{name:'Půdorys C',help:'A = hloubka výřezu, B = tloušťka horního a spodního ramene.',a:true,b:true,aLabel:'Hloubka výřezu A',bLabel:'Tloušťka ramen B'},
+ Cmirror:{name:'Půdorys C – zrcadlový',help:'A = hloubka výřezu, B = tloušťka horního a spodního ramene. Otevření bude vlevo.',a:true,b:true,aLabel:'Hloubka výřezu A',bLabel:'Tloušťka ramen B'},
+ T:{name:'Půdorys T',help:'A = šířka svislého dříku, B = tloušťka horní příčky.',a:true,b:true,aLabel:'Šířka dříku A',bLabel:'Tloušťka příčky B'},
+ Tdown:{name:'Půdorys T – otočený',help:'A = šířka svislého dříku, B = tloušťka dolní příčky.',a:true,b:true,aLabel:'Šířka dříku A',bLabel:'Tloušťka příčky B'},
+ H:{name:'Půdorys H',help:'A = šířka bočních stojin, B = tloušťka střední příčky.',a:true,b:true,aLabel:'Šířka stojin A',bLabel:'Tloušťka příčky B'},
+ E:{name:'Půdorys E',help:'A = šířka svislé stojiny, B = tloušťka příček.',a:true,b:true,aLabel:'Šířka stojiny A',bLabel:'Tloušťka příček B'},
+ F:{name:'Půdorys F',help:'A = šířka svislé stojiny, B = tloušťka příček.',a:true,b:true,aLabel:'Šířka stojiny A',bLabel:'Tloušťka příček B'},
+ cross:{name:'Křížový půdorys',help:'A = šířka svislého ramene, B = šířka vodorovného ramene.',a:true,b:true,aLabel:'Svislé rameno A',bLabel:'Vodorovné rameno B'},
+ stairs3:{name:'Schodovitý půdorys – 3 stupně',help:'Šířka W a výška H určují vnější rozměry schodovitého půdorysu.',a:false,b:false},
+ stairs4:{name:'Schodovitý půdorys – 4 stupně',help:'Šířka W a výška H určují vnější rozměry schodovitého půdorysu.',a:false,b:false},
+ zigzag:{name:'Klikatý / zalomený půdorys',help:'A = odsazení zalomení, B = tloušťka zalomeného pásu.',a:true,b:true,aLabel:'Odsazení A',bLabel:'Tloušťka pásu B'}
+};
+function mirrorShape(poly,w,h,fx,fy){return poly.map(p=>({x:fx?w-p.x:p.x,y:fy?h-p.y:p.y}));}
+function generateShapePolygon(type,w,h,a,b){
+ const W=w,H=h,A=a,B=b,rect=[[0,0],[W,0],[W,H],[0,H]];
+ const P=arr=>arr.map(([x,y])=>({x,y}));
+ const valid=(cond,msg)=>{if(!cond)throw new Error(msg);};
+ valid(W>0&&H>0,'Šířka a výška musí být větší než nula.');
+ switch(type){
+  case 'rectangle':return P(rect);
+  case 'square':return P([[0,0],[W,0],[W,W],[0,W]]);
+  case 'rightTriangle':return P([[0,0],[W,0],[0,H]]);
+  case 'isoscelesTriangle':return P([[0,0],[W,0],[W/2,H]]);
+  case 'equilateralTriangle':{const hh=W*Math.sqrt(3)/2;return P([[0,0],[W,0],[W/2,hh]]);}
+  case 'trapezoid':valid(A>0&&A<W&&B>=0&&B+A<=W,'U lichoběžníku musí platit A > 0 a B + A ≤ W.');return P([[0,0],[W,0],[B+A,H],[B,H]]);
+  case 'parallelogram':valid(A>=0&&A<W,'Posun A musí být nezáporný a menší než šířka W.');return P([[0,0],[W,0],[W+A,H],[A,H]]);
+  case 'rhombus':return P([[W/2,0],[W,H/2],[W/2,H],[0,H/2]]);
+  case 'diamond':return P([[W/2,0],[W,H*.36],[W*.62,H],[W*.38,H],[0,H*.36]]);
+  case 'pentagon':case 'hexagon':case 'octagon':case 'decagon':{
+   const n={pentagon:5,hexagon:6,octagon:8,decagon:10}[type];
+   return Array.from({length:n},(_,i)=>({x:W/2+W/2*Math.cos(-Math.PI/2+2*Math.PI*i/n),y:H/2+H/2*Math.sin(-Math.PI/2+2*Math.PI*i/n)}));
+  }
+  case 'circle':return Array.from({length:32},(_,i)=>({x:W/2+W/2*Math.cos(2*Math.PI*i/32),y:W/2+W/2*Math.sin(2*Math.PI*i/32)}));
+  case 'ellipse':return Array.from({length:32},(_,i)=>({x:W/2+W/2*Math.cos(2*Math.PI*i/32),y:H/2+H/2*Math.sin(2*Math.PI*i/32)}));
+  case 'L':case 'Lmirror':case 'Lrotate':case 'LrotateMirror':{
+   valid(A>0&&A<W&&B>0&&B<H,'U půdorysu L musí být výřez A a B menší než vnější šířka a výška.');
+   let p=P([[0,0],[W,0],[W,H-B],[A,H-B],[A,H],[0,H]]);
+   if(type==='Lmirror')p=mirrorShape(p,W,H,true,false);
+   if(type==='Lrotate')p=mirrorShape(p,W,H,false,true);
+   if(type==='LrotateMirror')p=mirrorShape(p,W,H,true,true);
+   return p;
+  }
+  case 'U':case 'Udown':{
+   valid(A>0&&2*A<W&&B>0&&B<H,'U půdorysu U musí platit 2A < W a 0 < B < H.');
+   let p=P([[0,0],[W,0],[W,H],[W-A,H],[W-A,B],[A,B],[A,H],[0,H]]);
+   if(type==='Udown')p=mirrorShape(p,W,H,false,true);return p;
+  }
+  case 'C':case 'Cmirror':{
+   valid(A>0&&A<W&&B>0&&2*B<H,'U půdorysu C musí platit 0 < A < W a 2B < H.');
+   let p=P([[0,0],[W,0],[W,B],[A,B],[A,H-B],[W,H-B],[W,H],[0,H]]);
+   if(type==='Cmirror')p=mirrorShape(p,W,H,true,false);return p;
+  }
+  case 'T':case 'Tdown':{
+   valid(A>0&&A<W&&B>0&&B<H,'U půdorysu T musí platit 0 < A < W a 0 < B < H.');
+   let p=P([[W/2-A/2,0],[W/2+A/2,0],[W/2+A/2,H-B],[W,H-B],[W,H],[0,H],[0,H-B],[W/2-A/2,H-B]]);
+   if(type==='Tdown')p=mirrorShape(p,W,H,false,true);return p;
+  }
+  case 'H':{
+   valid(A>0&&2*A<W&&B>0&&B<H,'U půdorysu H musí platit 2A < W a 0 < B < H.');
+   const y1=(H-B)/2,y2=(H+B)/2;return P([[0,0],[A,0],[A,y1],[W-A,y1],[W-A,0],[W,0],[W,H],[W-A,H],[W-A,y2],[A,y2],[A,H],[0,H]]);
+  }
+  case 'E':case 'F':{
+   valid(A>0&&A<W&&B>0&&B<H/2,'U půdorysu E/F musí platit 0 < A < W a B < H/2.');
+   if(type==='E')return P([[0,0],[W,0],[W,B],[A,B],[A,(H-B)/2],[W,(H-B)/2],[W,(H+B)/2],[A,(H+B)/2],[A,H-B],[W,H-B],[W,H],[0,H]]);
+   return P([[0,0],[W,0],[W,B],[A,B],[A,(H-B)/2],[W,(H-B)/2],[W,(H+B)/2],[A,(H+B)/2],[A,H],[0,H]]);
+  }
+  case 'cross':{
+   valid(A>0&&A<W&&B>0&&B<H,'Šířky ramen A a B musí být menší než vnější rozměry.');
+   const x1=(W-A)/2,x2=(W+A)/2,y1=(H-B)/2,y2=(H+B)/2;
+   return P([[x1,0],[x2,0],[x2,y1],[W,y1],[W,y2],[x2,y2],[x2,H],[x1,H],[x1,y2],[0,y2],[0,y1],[x1,y1]]);
+  }
+  case 'stairs3':case 'stairs4':{
+   const n=type==='stairs3'?3:4,arr=[[0,0],[W,0]];
+   for(let k=1;k<=n;k++){
+    arr.push([W*(n-k+1)/n,H*k/n]);
+    if(k<n)arr.push([W*(n-k)/n,H*k/n]);
+   }
+   arr.push([0,H]);return P(arr);
+  }
+  case 'zigzag':{
+   valid(A>0&&A<W/2&&B>0&&B<H/2,'U zalomeného tvaru musí platit A < W/2 a B < H/2.');
+   return P([[0,0],[W,0],[W,B],[A,B],[W-B,H-B],[W,H-B],[W,H],[0,H],[0,H-B],[W-2*B,H-B],[0,B]]);
+  }
+  default:throw new Error('Tento geometrický tvar není podporován.');
+ }
+}
+function shapeInputValue(id){
+ const raw=String($(id).value||'').trim().replace(',','.');
+ if(!raw)throw new Error('Vyplň všechna potřebná rozměrová pole.');
+ const n=Number(raw);if(!Number.isFinite(n))throw new Error('Zadaný rozměr není platné číslo.');
+ return n/unitFactor();
+}
+function readShapeValues(){
+ const type=$('shapeType').value,w=shapeInputValue('shapeWidth'),h=shapeInputValue('shapeHeight');
+ const a=$('shapeParamAWrap').hidden?0:shapeInputValue('shapeParamA');
+ const b=$('shapeParamBWrap').hidden?0:shapeInputValue('shapeParamB');
+ return {type,w,h,a,b,points:generateShapePolygon(type,w,h,a,b)};
+}
+function updateShapeFields(){
+ const meta=SHAPE_INFO[$('shapeType').value];
+ $('shapeParamAWrap').hidden=!meta.a;$('shapeParamBWrap').hidden=!meta.b;
+ $('shapeParamALabel').textContent=meta.aLabel||'Rozměr A';$('shapeParamBLabel').textContent=meta.bLabel||'Rozměr B';
+ $('shapeHeight').disabled=$('shapeType').value==='square'||$('shapeType').value==='equilateralTriangle'||$('shapeType').value==='circle';
+ if($('shapeHeight').disabled){$('shapeHeight').value=$('shapeWidth').value;}
+ $('shapeHelp').textContent=meta.help;
+ updateShapePreview();
+}
+function updateShapePreview(){
+ try{
+  const d=readShapeValues(),xs=d.points.map(p=>p.x),ys=d.points.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const sw=280,sh=150,scale=Math.min(sw/Math.max(maxX-minX,1e-6),sh/Math.max(maxY-minY,1e-6));
+  const spareX=(320-(maxX-minX)*scale)/2,spareY=(190-(maxY-minY)*scale)/2;
+  const ptsText=d.points.map(p=>`${(spareX+(p.x-minX)*scale).toFixed(2)},${(190-spareY-(p.y-minY)*scale).toFixed(2)}`).join(' ');
+  $('shapePreviewPolygon').setAttribute('points',ptsText);
+  $('shapePreviewCaption').textContent=`${SHAPE_INFO[d.type].name} · ${d.points.length} vrcholů · vnější rozměr ${fmt(maxX-minX)} × ${fmt(maxY-minY)} m`;
+  $('shapeError').textContent='';
+ }catch(e){$('shapeError').textContent=e.message;$('shapePreviewPolygon').setAttribute('points','');$('shapePreviewCaption').textContent='Zkontroluj zadané rozměry.';}
+}
+function openShapeLibrary(){
+ $('shapeLibraryOverlay').hidden=false;
+ document.querySelectorAll('.shapeUnit').forEach(e=>e.textContent=unitLength());
+ const f=unitFactor();$('shapeWidth').value=fmt(6*f);$('shapeHeight').value=fmt(4*f);$('shapeParamA').value=fmt(2*f);$('shapeParamB').value=fmt(1.5*f);
+ updateShapeFields();$('shapeType').focus();
+}
+function closeShapeLibrary(){$('shapeLibraryOverlay').hidden=true;$('shapeError').textContent='';}
+function applyShapeFromLibrary(){
+ let d;try{d=readShapeValues();}catch(e){$('shapeError').textContent=e.message;return;}
+ if(d.points.length<3||!polygonIsSimple(d.points)){ $('shapeError').textContent='Zvolený obrazec by měl neplatnou nebo překříženou geometrii. Uprav rozměry.';return; }
+ // Všechny předlohy se vkládají jako nová samostatná plocha, nebo nahradí právě aktivní.
+ captureActiveArea();
+ if($('shapeAsNewArea').checked){
+  const id='area-'+Date.now()+'-'+Math.floor(Math.random()*10000);
+  areas.push({id,name:SHAPE_INFO[d.type].name,pts:clone(d.points),closed:true,desiredLengths:[],measuredDiagonals:[null,null],rectangleMode:false,centerOffset:null,color:'#75aee8'});
+  activeAreaId=id;
+ }else{
+  const active=areas.find(x=>x.id===activeAreaId);
+  active.name=SHAPE_INFO[d.type].name;active.pts=clone(d.points);active.closed=true;active.desiredLengths=[];active.measuredDiagonals=[null,null];active.rectangleMode=false;active.centerOffset=null;
+ }
+ const active=areas.find(x=>x.id===activeAreaId);
+ pts=clone(active.pts);closed=true;mode='draw';selectedIndex=-1;dragIndex=-1;desiredLengths=[];measuredDiagonals=[null,null];rectangleMode=false;centerMeasurementOffset=null;
+ initializeDesiredLengths();active.desiredLengths=clone(desiredLengths);active.measuredDiagonals=[null,null];active.rectangleMode=false;active.centerOffset=null;
+ resetDynamicInputs();restoreArea(active);renderAreaSelect();resetView();render();autoSave();commitHistory();closeShapeLibrary();
+ $('hint').textContent=`Načten tvar „${SHAPE_INFO[d.type].name}“ (${pts.length} vrcholů). Rozměry jsou skutečné; vrcholy, délky a úhly můžeš dále upravovat.`;
+}
+$('shapeLibraryBtn').addEventListener('click',openShapeLibrary);
+$('shapeDialogCancel').addEventListener('click',closeShapeLibrary);
+$('shapeDialogApply').addEventListener('click',applyShapeFromLibrary);
+$('shapeLibraryOverlay').addEventListener('pointerdown',e=>{if(e.target===$('shapeLibraryOverlay'))closeShapeLibrary();});
+$('shapeType').addEventListener('change',()=>{
+ const f=unitFactor();const key=$('shapeType').value;
+ // Při změně typu připravíme přiměřené výchozí dílčí rozměry, ale hlavní rozměry ponecháme.
+ $('shapeParamA').value=fmt((key==='trapezoid'?3:key==='parallelogram'?1.2:2)*f);
+ $('shapeParamB').value=fmt((key==='trapezoid'?1.5:1.2)*f);
+ updateShapeFields();
+});
+['shapeWidth','shapeHeight','shapeParamA','shapeParamB'].forEach(id=>$(id).addEventListener('input',updateShapePreview));
+$('shapeDialogApply').addEventListener('keydown',e=>{if(e.key==='Enter')applyShapeFromLibrary();});
+
+$('unitSelect').addEventListener('change',()=>{updateUnitLabels();render();});
+$('showDimensions').addEventListener('change',render);
+$('drawingBackground').addEventListener('change',e=>{
+ const mode=e.target.value;
+ $('drawingBackgroundRect').setAttribute('fill',
+  mode==='dots'?'url(#dotPattern)':mode==='grid'?'url(#gridPattern)':'#fbfdff');
+});
+$('rectangleMode').checked=rectangleMode;
+$('rectangleMode').addEventListener('change',e=>{
+ rectangleMode=e.target.checked;
+ if(rectangleMode&&closed&&pts.length===4){
+  const lengths=measuredLengths();
+  rebuildRectangle(lengths[0],lengths[1]);
+  desiredLengths=measuredLengths();
+ }
+ render();autoSave();commitHistory();
+});
+
+$('areaColorInput').addEventListener('input',e=>{const a=areas.find(x=>x.id===activeAreaId);if(!a)return;a.color=e.target.value;render();autoSave();commitHistory();});
+$('areaSelect').addEventListener('change',e=>switchArea(e.target.value));
+$('roomNameInput').addEventListener('change',e=>{
+ const name=String(e.target.value||'').trim().slice(0,40);
+ if(!name){e.target.value=areas.find(a=>a.id===activeAreaId)?.roomName||'2.01';$('projectStatus').textContent='Název místnosti nesmí být prázdný.';return;}
+ captureActiveArea();
+ areas.forEach(a=>a.roomName=name);
+ e.target.value=name;
+ renderAreaSelect();autoSave();commitHistory();
+ $('projectStatus').textContent='Název místnosti byl změněn pro všechny plochy v projektu.';
+});
+$('addAreaBtn').onclick=()=>addArea();
+
+// Vlastní dialogy pro přejmenování a mazání ploch. Nepoužívají window.prompt/
+// window.confirm, které mohou být v některých prohlížečích a vložených oknech blokované.
+let projectDialogAction=null;
+function openProjectDialog(action){
+ const a=areas.find(x=>x.id===activeAreaId);if(!a)return;
+ if(action==='delete'&&areas.length<=1){
+  $('projectStatus').textContent='Poslední plochu v projektu nelze smazat. Přidej nejprve další plochu.';
+  return;
+ }
+ projectDialogAction=action;
+ $('projectDialogError').textContent='';
+ if(action==='rename'){
+  $('projectDialogTitle').textContent='Přejmenovat plochu';
+  $('projectDialogMessage').textContent='Zadej nový název aktuální plochy.';
+  $('projectDialogLabel').hidden=false;
+  $('projectDialogInput').hidden=false;
+  $('projectDialogInput').value=a.name||'';
+  $('projectDialogConfirm').textContent='Uložit název';
+ }
+ else{
+  $('projectDialogTitle').textContent='Smazat plochu';
+  $('projectDialogMessage').textContent=`Opravdu chceš smazat plochu „${a.name||'Plocha'}“? Její geometrie a rozměry budou odstraněny z projektu.`;
+  $('projectDialogLabel').hidden=true;
+  $('projectDialogInput').hidden=true;
+  $('projectDialogConfirm').textContent='Smazat plochu';
+ }
+ $('projectDialogOverlay').hidden=false;
+ if(action==='rename'){$('projectDialogInput').focus();$('projectDialogInput').select();}
+ else $('projectDialogConfirm').focus();
+}
+function closeProjectDialog(){
+ $('projectDialogOverlay').hidden=true;
+ projectDialogAction=null;
+ $('projectDialogError').textContent='';
+}
+function confirmProjectDialog(){
+ const action=projectDialogAction;
+ if(!action)return;
+ const current=areas.find(x=>x.id===activeAreaId);
+ if(!current){closeProjectDialog();return;}
+ if(action==='rename'){
+  const name=$('projectDialogInput').value.trim();
+  if(!name){$('projectDialogError').textContent='Název plochy nesmí být prázdný.';$('projectDialogInput').focus();return;}
+  captureActiveArea();
+  current.name=name;
+  renderAreaSelect();
+  autoSave();commitHistory();
+  $('projectStatus').textContent=`Plocha byla přejmenována na „${name}“ a změna byla uložena.`;
+  $('hint').textContent=`Aktuální plocha: ${name}.`;
+  closeProjectDialog();
+  return;
+ }
+ if(action==='delete'){
+  if(areas.length<=1){$('projectDialogError').textContent='Poslední plochu v projektu nelze smazat.';return;}
+  // Nejdříve synchronizuj aktuální geometrii do projektu, aby mazání
+  // nesmazalo ani nepřepsalo změny, které ještě nebyly automaticky uloženy.
+  captureActiveArea();
+  const deletedIndex=areas.findIndex(x=>x.id===activeAreaId);
+  const remaining=areas.filter(x=>x.id!==activeAreaId);
+  const nextIndex=Math.min(Math.max(deletedIndex,0),remaining.length-1);
+  areas=remaining;
+  activeAreaId=areas[nextIndex].id;
+  restoreArea(areas[nextIndex]);
+  renderAreaSelect();
+  autoSave();commitHistory();
+  $('projectStatus').textContent=`Plocha „${current.name||'Plocha'}“ byla smazána. Aktivní je nyní „${areas[nextIndex].name}“.`;
+  closeProjectDialog();
+ }
+}
+$('renameAreaBtn').onclick=()=>openProjectDialog('rename');
+$('deleteAreaBtn').onclick=()=>openProjectDialog('delete');
+$('projectDialogCancel').onclick=closeProjectDialog;
+$('projectDialogConfirm').onclick=confirmProjectDialog;
+$('projectDialogInput').addEventListener('keydown',e=>{
+ if(e.key==='Enter'){e.preventDefault();confirmProjectDialog();}
+ if(e.key==='Escape')closeProjectDialog();
+});
+$('projectDialogOverlay').addEventListener('pointerdown',e=>{
+ if(e.target===$('projectDialogOverlay'))closeProjectDialog();
+});
+window.addEventListener('keydown',e=>{
+ if(e.key==='Escape'&&!$('projectDialogOverlay').hidden)closeProjectDialog();
+});
+$('saveProjectBtn').onclick=saveProjectFile;
+$('loadProjectBtn').onclick=()=>$('projectFile').click();
+$('projectFile').addEventListener('change',e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ const reader=new FileReader();reader.onload=()=>{try{loadProjectData(JSON.parse(reader.result));$('projectStatus').textContent='Projekt byl načten.';}catch(err){alert(err.message);}};
+ reader.readAsText(file);e.target.value='';
+});
+$('exportExcelBtn').onclick=()=>{try{exportCsv();}catch(err){$('projectStatus').textContent='Export Excel/CSV se nezdařil: '+err.message;alert('Export se nezdařil: '+err.message);}};
+$('saveProjectBtn').onclick=()=>{try{saveProjectFile();}catch(err){$('projectStatus').textContent='Uložení projektu se nezdařilo: '+err.message;alert('Uložení se nezdařilo: '+err.message);}};
+function pdfSafeText(value){
+ return String(value??'').replace(/²/g,'2').replace(/³/g,'3').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,'?').replace(/([\\()])/g,'\\$1');
+}
+function buildProjectPdf(){
+ validateProjectForExport();
+ const W=595.28,H=841.89,pages=[];
+ const esc=pdfSafeText, num=v=>shown(v), unit=unitLength(), areaUnit=unitArea();
+ const C={navy:'0.06 0.16 0.26',blue:'0.09 0.29 0.44',teal:'0.09 0.42 0.47',mint:'0.33 0.84 0.76',ink:'0.10 0.16 0.23',muted:'0.38 0.45 0.53',line:'0.85 0.89 0.93',pale:'0.94 0.97 0.98',paleTeal:'0.91 0.97 0.96',white:'1 1 1'};
+ function page(){const cmds=[];pages.push(cmds);return cmds;}
+ function txt(a,x,y,size,str,color=C.ink,font='F1'){
+  a.push(`${color} rg BT /${font} ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td (${esc(str)}) Tj ET`);
+ }
+ function rect(a,x,y,w,h,fill,stroke=null,lw=.7){
+  if(fill)a.push(`${fill} rg ${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f`);
+  if(stroke)a.push(`${stroke} RG ${lw} w ${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re S`);
+ }
+ function line(a,x1,y1,x2,y2,color=C.line,lw=.7){a.push(`${color} RG ${lw} w ${x1.toFixed(2)} ${y1.toFixed(2)} m ${x2.toFixed(2)} ${y2.toFixed(2)} l S`);}
+ function header(a,pageNo,totalPages){
+  rect(a,0,H-76,W,76,C.navy);
+  rect(a,0,H-76,8,76,C.mint);
+  // Geometric brand mark echoing the application header
+  rect(a,28,H-49,10,10,C.mint);rect(a,41,H-49,10,10,'0.20 0.62 0.65');
+  rect(a,28,H-62,10,10,'0.20 0.62 0.65');rect(a,41,H-62,10,10,'0.96 0.73 0.36');
+  txt(a,62,H-34,15,'STAVEBNI KALKULACKA',C.white,'F2');
+  txt(a,62,H-51,7.5,'STAVEBNI MERENI A VYMERY',C.mint,'F2');
+  txt(a,62,H-65,7,'MERENI A VYPOCET STAVEBNICH PLOCH  |  '+(projectName||'PROJEKT'),'0.86 0.91 0.96');
+  line(a,30,30,565,30,C.line,.6);
+  txt(a,30,17,6.5,'Stavebni kalkulacka  |  Export projektu','0.42 0.49 0.56');
+  txt(a,500,17,6.5,'STRANA '+pageNo+' / '+totalPages,'0.42 0.49 0.56');
+ }
+ function drawAreaCard(a,ar,index,x,top,w,h){
+  const y=top-h,pts=ar.pts||[],st=areaStats(ar);
+  rect(a,x,y,w,h,C.white,C.line,.8);
+  rect(a,x,y+h-5,w,5,C.teal);
+  txt(a,x+14,top-25,10.5,('MISTNOST '+(ar.roomName||'—')+'  |  '+(ar.name||'Plocha '+(index+1))).slice(0,68),C.navy,'F2');
+  txt(a,x+14,top-40,6.7,'PREHLED VYMER A GEOMETRIE',C.muted,'F2');
+  // Three compact metric tiles
+  const tileY=top-82,tileW=(w-38)/3;
+  [[ 'PLOCHA',ar.closed?num(st.area*(unitFactor()===100?10000:1))+' '+areaUnit:'—'],['OBVOD',ar.closed?num(st.perimeter)+' '+unit:'—'],['VRCHOLY',String(pts.length)]].forEach((m,i)=>{
+   const tx=x+13+i*(tileW+6);rect(a,tx,tileY,tileW,31,i===0?C.paleTeal:C.pale);
+   txt(a,tx+7,tileY+19,5.5,m[0],C.muted,'F2');txt(a,tx+7,tileY+7,8,m[1],C.navy,'F2');
+  });
+  const dx=x+13,dy=top-218,dw=w-26,dh=120;
+  rect(a,dx,dy,dw,dh,'0.985 0.992 1',C.line,.5);
+  txt(a,dx+8,dy+dh-12,5.5,'NAKRES PU DORYSU',C.muted,'F2');
+  if(pts.length){
+   const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+   const pad=17,sc=Math.min((dw-2*pad)/Math.max(maxX-minX,.01),(dh-2*pad)/Math.max(maxY-minY,.01));
+   const ox=dx+(dw-(maxX-minX)*sc)/2,oy=dy+(dh-(maxY-minY)*sc)/2;
+   const xy=p=>[ox+(p.x-minX)*sc,oy+(p.y-minY)*sc];
+   if(pts.length>=3&&ar.closed){const p0=xy(pts[0]);let path=`${C.paleTeal} rg ${p0[0].toFixed(2)} ${p0[1].toFixed(2)} m `;for(let i=1;i<pts.length;i++){const q=xy(pts[i]);path+=`${q[0].toFixed(2)} ${q[1].toFixed(2)} l `;}path+='h f';a.push(path);}
+   for(let i=0;i<pts.length-(ar.closed?0:1);i++){const p1=xy(pts[i]),p2=xy(pts[(i+1)%pts.length]);line(a,p1[0],p1[1],p2[0],p2[1],C.teal,1.6);}
+   pts.forEach((p,i)=>{const [px,py]=xy(p);rect(a,px-2.2,py-2.2,4.4,4.4,C.teal);txt(a,px+4,py+4,5.2,'V'+(i+1),C.blue,'F2');});
+  }else txt(a,dx+12,dy+dh/2,7,'Pudorys zatim neni nakreslen.',C.muted);
+  const ty=dy-17;
+  txt(a,x+14,ty,7.2,'SOURADNICE A DELKY STRAN',C.navy,'F2');
+  const hy=ty-14;
+  rect(a,x+13,hy-3,w-26,13,C.navy);
+  txt(a,x+20,hy+1,5.7,'BOD',C.white,'F2');txt(a,x+78,hy+1,5.7,'X ('+unit+')',C.white,'F2');txt(a,x+155,hy+1,5.7,'Y ('+unit+')',C.white,'F2');txt(a,x+238,hy+1,5.7,'STRANA / DELKA',C.white,'F2');
+  const rowH=9.2,maxRows=Math.max(0,Math.floor((hy-(y+12))/rowH));let ry=hy-13;
+  pts.slice(0,maxRows).forEach((p,i)=>{
+   if(i%2===0)rect(a,x+13,ry-3,w-26,9.2,C.pale);
+   const next=pts[(i+1)%pts.length],len=(i<pts.length-1||ar.closed)?Math.hypot(next.x-p.x,next.y-p.y):null;
+   txt(a,x+20,ry,5.7,'V'+(i+1),C.ink);txt(a,x+78,ry,5.7,num(p.x),C.ink);txt(a,x+155,ry,5.7,num(p.y),C.ink);
+   txt(a,x+238,ry,5.7,len===null?'—':'S'+(i+1)+'  '+num(len)+' '+unit,C.ink);ry-=rowH;
+  });
+  if(pts.length>maxRows)txt(a,x+14,y+5,5.3,'Tabulka zkracena: '+maxRows+' z '+pts.length+' vrcholu.',C.muted);
+ }
+ const perPage=2,totalPages=Math.max(1,Math.ceil(areas.length/perPage));
+ for(let pg=0;pg<totalPages;pg++){
+  const a=page();header(a,pg+1,totalPages);const first=pg*2,items=areas.slice(first,first+2);
+  items.forEach((ar,j)=>drawAreaCard(a,ar,first+j,30,H-91-j*365,535,354));
+  if(!items.length)txt(a,40,H-130,10,'Projekt neobsahuje zadne plochy.',C.muted);
+ }
+ const objects=[];objects.push('<< /Type /Catalog /Pages 2 0 R >>');
+ const kids=pages.map((_,i)=>`${3+i*2} 0 R`).join(' ');objects.push(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);
+ pages.forEach((commands,i)=>{const pageObj=3+i*2,contentObj=pageObj+1,stream=commands.join('\n');objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${3+pages.length*2} 0 R /F2 ${4+pages.length*2} 0 R >> >> /Contents ${contentObj} 0 R >>`);objects.push(`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`);});
+ objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
+ let pdf='%PDF-1.4\n%PLCHPDF\n',offsets=[0];for(let i=0;i<objects.length;i++){offsets.push(new TextEncoder().encode(pdf).length);pdf+=`${i+1} 0 obj\n${objects[i]}\nendobj\n`;}
+ const xref=new TextEncoder().encode(pdf).length;pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;for(let i=1;i<offsets.length;i++)pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';pdf+=`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+ return new Blob([pdf],{type:'application/pdf'});
+}
+$('exportPdfBtn').onclick=()=>{
+ try{
+  const blob=buildProjectPdf();
+  const name=(projectName.replace(/[^a-z0-9_-]+/gi,'_')||'projekt')+'.pdf';
+  downloadBlob(blob,name);
+  $('projectStatus').textContent='PDF bylo pripraveno ke stazeni. Pokud se nestahlo automaticky, pouzij odkaz nize.';
+ }catch(err){
+  $('projectStatus').textContent='Export PDF se nezdařil: '+(err?.message||err);
+  alert('Export PDF se nezdařil: '+(err?.message||err));
+ }
+};
+window.addEventListener('afterprint',()=>{$('projectStatus').textContent='Tiskový dialog byl uzavřen. Pokud jsi zvolil „Uložit jako PDF“, soubor je uložen podle umístění vybraného v dialogu.';});
+window.addEventListener('beforeunload',autoSave);
+let stored=null;try{stored=JSON.parse(localStorage.getItem('plochyProject_v1')||localStorage.getItem('sdkProject_v1')||'null');}catch(e){}
+if(stored&&Array.isArray(stored.areas)&&!stored.format)stored.format='Kalkulacka ploch project';
+if(stored&&['Kalkulacka ploch project','Kalkulacka SDK project'].includes(stored.format)&&Array.isArray(stored.areas)){
+ try{loadProjectData(stored);}catch(e){}
+}else{
+ areas[0].pts=clone(pts);areas[0].closed=closed;areas[0].desiredLengths=clone(desiredLengths);
+}
+renderAreaSelect();
+updateUnitLabels();
+updateZoomReadout();
+render();
+autoSave();
+initializeHistory();
+
+
+// PDF import, raster-based room detection and editable room boundaries.
+let pdfDoc=null,pdfFileName='',pdfCurrentPage=1,pdfPageScale=1,pdfCalibration=null,pdfZoom=1,pdfPanState=null,pdfPanMode=false,pdfSuppressClick=false,pdfLoupeEnabled=true;
+let pdfManualRooms=[],pdfSelectedManualRoom=-1,pdfRoomLabelSeeds=[],pdfRoomReferenceAreas={},pdfLastUnmatchedRoomLabels=[],pdfManualPoints=[],pdfManualMode=false,pdfCalMode=false,pdfCalPoints=[],pdfCalEditIndex=-1,pdfCalDragIndex=-1,pdfCalDragMoved=false,pdfCalSuppressClick=false,pdfLivePointer=null,pdfCalibrationDirty=false,pdfLoupePinned=false,pdfLastExcludedStampCount=0,pdfLastMergedRoomCount=0,pdfLastSplitRoomCount=0;
+let pdfRenderTask=null;
+const pdfCanvas=$('pdfPageCanvas'),pdfOverlay=$('pdfOverlayCanvas');
+const pdfCtx=pdfCanvas.getContext('2d'),pdfOverlayCtx=pdfOverlay.getContext('2d');
+function pdfStatus(message,type=''){$('pdfImportStatus').textContent=message;$('pdfImportStatus').className='pdf-status '+type;}
+function parsePdfDecimal(raw){
+ let value=String(raw??'').trim().replace(/[\s\u00a0]/g,'');
+ if(value.includes(',')&&value.includes('.')){if(value.lastIndexOf(',')>value.lastIndexOf('.'))value=value.replace(/\./g,'').replace(',','.');else value=value.replace(/,/g,'');}
+ else value=value.replace(',','.');
+ const n=Number(value);return Number.isFinite(n)?n:NaN;
+}
+function updatePdfCalibrationControls(){
+ const n=pdfCalPoints.length;
+ $('pdfApplyCalibration').disabled=n!==2;
+ $('pdfEditCalPoint1').disabled=n<1;
+ $('pdfEditCalPoint2').disabled=n<2;
+ $('pdfDeleteCalPoint').disabled=n<1;
+ $('pdfClearCalPoints').disabled=n<1;
+ $('pdfEditCalPoint1').classList.toggle('is-active',pdfCalEditIndex===0);
+ $('pdfEditCalPoint2').classList.toggle('is-active',pdfCalEditIndex===1);
+}
+function invalidatePdfCalibration(){
+ pdfCalibration=null;pdfCalibrationDirty=true;
+ if($('pdfManualBtn'))$('pdfManualBtn').disabled=true;
+ $('pdfScaleReadout').textContent='Měřítko není nastaveno – potvrď nové označení.';
+}
+function armPdfCalPointEdit(index){
+ if(index<0||index>=pdfCalPoints.length)return;
+ setPdfPanMode(false);pdfCalMode=true;pdfManualMode=false;pdfCalEditIndex=index;pdfLivePointer=null;
+ $('pdfCanvasWrap').classList.add('pdf-calibrating');
+ updatePdfCalibrationControls();drawPdfOverlay();
+ pdfStatus(`Upravuješ bod ${index+1}. Klikni na nové místo, nebo přetáhni označený křížek přímo ve výkresu.`,'warn');
+ $('pdfCalibHelp').textContent=`Úprava bodu ${index+1}: kliknutím zvol nové místo, nebo přetáhni jeho křížek. Kalibrace se po změně musí znovu potvrdit.`;
+}
+function deletePdfCalPoint(){
+ if(!pdfCalPoints.length)return;
+ const idx=pdfCalEditIndex>=0&&pdfCalEditIndex<pdfCalPoints.length?pdfCalEditIndex:pdfCalPoints.length-1;
+ pdfCalPoints.splice(idx,1);pdfCalEditIndex=-1;pdfCalDragIndex=-1;pdfCalMode=true;pdfLoupePinned=false;invalidatePdfCalibration();
+ $('pdfCanvasWrap').classList.add('pdf-calibrating');updatePdfCalibrationControls();drawPdfOverlay();
+ pdfStatus(`Bod ${idx+1} byl smazán. Klikni na jeho nové umístění nebo označ bod znovu.`,'warn');
+}
+
+function syncPdfOverlayLayout(){
+ if(!pdfCanvas.width||!pdfCanvas.height)return;
+ const wrap=$('pdfCanvasWrap'),cr=pdfCanvas.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+ // Keep the overlay exactly registered to the PDF canvas, including scroll and high CSS zoom.
+ pdfOverlay.style.left=(cr.left-wr.left-wrap.clientLeft+wrap.scrollLeft)+'px';
+ pdfOverlay.style.top=(cr.top-wr.top-wrap.clientTop+wrap.scrollTop)+'px';
+ pdfOverlay.style.width=cr.width+'px';pdfOverlay.style.height=cr.height+'px';
+}
+function updatePdfZoomUI(){
+ const pct=Math.round(pdfZoom*100);
+ $('pdfZoomReadout').textContent=pct+' %';$('pdfZoomSlider').value=String(pct);$('pdfZoomNumber').value=String(pct);
+}
+function setPdfZoom(value,anchorX=null,anchorY=null){
+ if(!pdfCanvas.width||!pdfCanvas.height)return;
+ const next=Math.max(.5,Math.min(25,Number(value)||1));
+ if(Math.abs(next-pdfZoom)<.001)return;
+ const wrap=$('pdfCanvasWrap'),canvasRect=pdfCanvas.getBoundingClientRect(),wrapRect=wrap.getBoundingClientRect(),old=pdfZoom;
+ const targetX=anchorX==null?wrapRect.left+wrap.clientLeft+wrap.clientWidth/2:anchorX;
+ const targetY=anchorY==null?wrapRect.top+wrap.clientTop+wrap.clientHeight/2:anchorY;
+ const fx=Math.max(0,Math.min(1,(targetX-canvasRect.left)/Math.max(1,canvasRect.width)));
+ const fy=Math.max(0,Math.min(1,(targetY-canvasRect.top)/Math.max(1,canvasRect.height)));
+ pdfZoom=next;const width=(pdfZoom*100)+'%';
+ pdfCanvas.style.width=width;pdfCanvas.style.height='auto';
+ updatePdfZoomUI();
+ requestAnimationFrame(()=>{
+  const newRect=pdfCanvas.getBoundingClientRect();
+  // Keep the exact PDF point under the pointer stationary while zooming.
+  wrap.scrollLeft=Math.max(0,wrap.scrollLeft+newRect.left+fx*newRect.width-targetX);
+  wrap.scrollTop=Math.max(0,wrap.scrollTop+newRect.top+fy*newRect.height-targetY);
+  syncPdfOverlayLayout();drawPdfOverlay();
+ });
+}
+function resetPdfZoom(){pdfZoom=1;pdfCanvas.style.width='100%';pdfCanvas.style.height='auto';$('pdfCanvasWrap').scrollLeft=0;$('pdfCanvasWrap').scrollTop=0;updatePdfZoomUI();requestAnimationFrame(()=>{syncPdfOverlayLayout();drawPdfOverlay();});}
+$('pdfZoomOut').addEventListener('click',()=>setPdfZoom(pdfZoom<=4?pdfZoom-.2:pdfZoom/1.25));
+$('pdfZoomIn').addEventListener('click',()=>setPdfZoom(pdfZoom<4?pdfZoom+.2:pdfZoom*1.25));
+$('pdfZoomSlider').addEventListener('input',e=>setPdfZoom(Number(e.target.value)/100));
+$('pdfZoomNumber').addEventListener('change',e=>setPdfZoom(Number(e.target.value)/100));
+$('pdfZoomNumber').addEventListener('keydown',e=>{if(e.key==='Enter'){setPdfZoom(Number(e.target.value)/100);e.target.blur();}});
+document.querySelectorAll('.pdf-zoom-preset').forEach(btn=>btn.addEventListener('click',()=>setPdfZoom(Number(btn.dataset.pdfZoom)/100)));
+$('pdfZoomFit').addEventListener('click',resetPdfZoom);
+$('pdfCanvasWrap').addEventListener('wheel',e=>{
+ if(!e.deltaY)return;
+ e.preventDefault();
+ const factor=Math.exp(-e.deltaY*0.0016);
+ setPdfZoom(pdfZoom*factor,e.clientX,e.clientY);
+},{passive:false});
+function setPdfLoupeEnabled(enabled){
+ pdfLoupeEnabled=!!enabled;
+ const btn=$('pdfLoupeToggle'),loupe=$('pdfLoupe');
+ btn.classList.toggle('is-active',pdfLoupeEnabled);
+ btn.setAttribute('aria-pressed',String(pdfLoupeEnabled));
+ btn.textContent=pdfLoupeEnabled?'🔍 Lupa zapnutá':'🔍 Lupa vypnutá';
+ if(!pdfLoupeEnabled){pdfLoupePinned=false;loupe.classList.remove('visible');}
+ $('pdfPanHelp').textContent=pdfLoupeEnabled
+  ?'Lupa je zapnutá pouze při kalibraci. Lze ji kdykoliv vypnout a posouvat výkres; kalibrační body zůstanou zachované.'
+  :'Lupa je vypnutá. Kalibrační body zůstávají zachované. Posuň PDF levým tlačítkem mimo kreslení; při kreslení podrž mezerník a táhni, případně táhni pravým tlačítkem.';
+}
+$('pdfLoupeToggle').addEventListener('click',()=>setPdfLoupeEnabled(!pdfLoupeEnabled));
+let pdfSpaceHeld=false,pdfRoomLabelDrag=null;
+function setPdfPanMode(enabled){
+ // Zpětná kompatibilita pro ostatní části aplikace: trvalý režim posunu už neexistuje.
+ pdfPanMode=false;
+ const wrap=$('pdfCanvasWrap');
+ if(wrap)wrap.classList.remove('pdf-pan-mode','pdf-panning');
+ if(pdfPanState)pdfPanState=null;
+}
+window.addEventListener('keydown',e=>{
+ if(e.code==='Space'&&!e.repeat&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){
+  pdfSpaceHeld=true;
+  if(document.activeElement===document.body)e.preventDefault();
+ }
+});
+window.addEventListener('keyup',e=>{if(e.code==='Space')pdfSpaceHeld=false;});
+window.addEventListener('blur',()=>{pdfSpaceHeld=false;});
+$('pdfCanvasWrap').addEventListener('pointerdown',e=>{
+ if(e.button===0&&!pdfSpaceHeld&&!e.shiftKey&&!pdfCalMode&&!pdfManualMode){
+  const point=pdfPointFromEvent(e),idx=pdfManualRooms.findIndex(room=>{
+   const p=room.pixelPoints;if(!p||p.length<3)return false;
+   const c=p.reduce((a,v)=>({x:a.x+v.x/p.length,y:a.y+v.y/p.length}),{x:0,y:0}),off=room.labelOffset||{x:0,y:0};
+   return Math.abs(point.x-c.x-off.x)<90&&Math.abs(point.y-c.y-off.y)<42;
+  });
+  if(idx>=0){pdfRoomLabelDrag={index:idx,last:point};try{$('pdfCanvasWrap').setPointerCapture(e.pointerId);}catch(err){}e.preventDefault();return;}
+ }
+ const idlePan=e.button===0&&!pdfManualMode&&!pdfCalMode&&pdfCalDragIndex<0;
+ // Pravé tlačítko nebo mezerník + levé tlačítko umožní posun i při ručním obkreslování.
+ const modifierPan=e.button===1||e.button===2||(e.button===0&&(pdfSpaceHeld||e.shiftKey));
+ const touchIdlePan=e.pointerType==='touch'&&!pdfManualMode&&!pdfCalMode&&pdfCalDragIndex<0;
+ if(!idlePan&&!modifierPan&&!touchIdlePan)return;
+ const wrap=$('pdfCanvasWrap');
+ pdfPanState={x:e.clientX,y:e.clientY,left:wrap.scrollLeft,top:wrap.scrollTop,moved:false,pointerId:e.pointerId};
+ wrap.classList.add('pdf-panning');
+ if(e.button===1||e.button===2||pdfSpaceHeld||e.shiftKey)e.preventDefault();
+ try{wrap.setPointerCapture(e.pointerId);}catch(err){}
+});
+$('pdfCanvasWrap').addEventListener('pointermove',e=>{
+ if(pdfRoomLabelDrag){const p=pdfPointFromEvent(e),room=pdfManualRooms[pdfRoomLabelDrag.index];if(room){room.labelOffset=room.labelOffset||{x:0,y:0};room.labelOffset.x+=p.x-pdfRoomLabelDrag.last.x;room.labelOffset.y+=p.y-pdfRoomLabelDrag.last.y;pdfRoomLabelDrag.last=p;drawPdfOverlay();}return;}
+ if(pdfPanState){
+  const dx=e.clientX-pdfPanState.x,dy=e.clientY-pdfPanState.y;
+  if(Math.abs(dx)+Math.abs(dy)>3)pdfPanState.moved=true;
+  $('pdfCanvasWrap').scrollLeft=pdfPanState.left-dx;
+  $('pdfCanvasWrap').scrollTop=pdfPanState.top-dy;
+  return;
+ }
+ if(pdfCalDragIndex>=0){
+  const p=pdfPointFromEvent(e);pdfCalPoints[pdfCalDragIndex]=p;pdfCalDragMoved=true;pdfLivePointer=p;invalidatePdfCalibration();drawPdfOverlay();showPdfLoupe(e);return;
+ }
+ if(pdfCalMode&&pdfLoupeEnabled){pdfLivePointer=pdfPointFromEvent(e);showPdfLoupe(e);}
+});
+function endPdfPan(){
+ if(pdfRoomLabelDrag){pdfRoomLabelDrag=null;return;}
+ if(pdfPanState?.moved)pdfSuppressClick=true;
+ pdfPanState=null;$('pdfCanvasWrap').classList.remove('pdf-panning');
+}
+$('pdfCanvasWrap').addEventListener('pointerup',endPdfPan);
+$('pdfCanvasWrap').addEventListener('pointercancel',endPdfPan);
+$('pdfCanvasWrap').addEventListener('lostpointercapture',endPdfPan);
+$('pdfCanvasWrap').addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault();});
+$('pdfCanvasWrap').addEventListener('contextmenu',e=>{if(pdfPanState)e.preventDefault();});
+$('pdfCanvasWrap').addEventListener('click',e=>{
+ if(pdfSuppressClick){e.preventDefault();e.stopPropagation();pdfSuppressClick=false;}
+},true);
+
+function pdfPointFromEvent(e){
+ const r=pdfCanvas.getBoundingClientRect();
+ if(!r.width||!r.height)return {x:0,y:0};
+ // Both selection and loupe use this single inverse mapping from CSS pixels to PDF backing pixels.
+ const x=(e.clientX-r.left)*(pdfCanvas.width/r.width);
+ const y=(e.clientY-r.top)*(pdfCanvas.height/r.height);
+ return {x:Math.max(0,Math.min(pdfCanvas.width,x)),y:Math.max(0,Math.min(pdfCanvas.height,y))};
+}
+function pdfPointToClient(p){
+ const r=pdfCanvas.getBoundingClientRect();
+ return {x:r.left+p.x*(r.width/pdfCanvas.width),y:r.top+p.y*(r.height/pdfCanvas.height)};
+}
+function nearestPdfCalibrationPoint(e,maxDistance=28){
+ const x=e.clientX,y=e.clientY;let best=-1,bestD=maxDistance;
+ pdfCalPoints.forEach((p,i)=>{const c=pdfPointToClient(p),d=Math.hypot(c.x-x,c.y-y);if(d<bestD){bestD=d;best=i;}});
+ return best;
+}
+function renderPdfLoupeAtPoint(p,clientX,clientY,pinned=false){
+ const loupe=$('pdfLoupe'),lens=$('pdfLoupeCanvas'),ctx=lens.getContext('2d');
+ if(!pdfLoupeEnabled||pdfPanState){loupe.classList.remove('visible');return;}
+ if(!pdfCanvas.width||!pdfCanvas.height){loupe.classList.remove('visible');return;}
+ const mag=8,sw=lens.width/mag,sh=lens.height/mag;
+ // Keep the chosen pixel at the exact centre of the loupe, even near page edges.
+ const wantedX=p.x-sw/2,wantedY=p.y-sh/2;
+ const sx0=Math.max(0,wantedX),sy0=Math.max(0,wantedY),sx1=Math.min(pdfCanvas.width,wantedX+sw),sy1=Math.min(pdfCanvas.height,wantedY+sh);
+ const dx=(sx0-wantedX)*mag,dy=(sy0-wantedY)*mag,dw=Math.max(0,(sx1-sx0)*mag),dh=Math.max(0,(sy1-sy0)*mag);
+ ctx.clearRect(0,0,lens.width,lens.height);ctx.fillStyle='#fff';ctx.fillRect(0,0,lens.width,lens.height);
+ ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+ if(dw>0&&dh>0)ctx.drawImage(pdfCanvas,sx0,sy0,sx1-sx0,sy1-sy0,dx,dy,dw,dh);
+ // One single central reticle. No second cursor cross is painted on the PDF overlay.
+ const cx=lens.width/2,cy=lens.height/2;
+ ctx.save();ctx.strokeStyle='#e11d48';ctx.lineWidth=1.6;ctx.beginPath();
+ ctx.moveTo(cx-26,cy);ctx.lineTo(cx-7,cy);ctx.moveTo(cx+7,cy);ctx.lineTo(cx+26,cy);
+ ctx.moveTo(cx,cy-26);ctx.lineTo(cx,cy-7);ctx.moveTo(cx,cy+7);ctx.lineTo(cx,cy+26);ctx.stroke();
+ ctx.fillStyle='#e11d48';ctx.fillRect(cx-1.5,cy-1.5,3,3);ctx.restore();
+ const w=loupe.offsetWidth||198,h=loupe.offsetHeight||232;let left=clientX+24,top=clientY+24;
+ if(left+w>window.innerWidth-8)left=clientX-w-24;if(top+h>window.innerHeight-8)top=clientY-h-24;
+ loupe.style.left=Math.max(8,left)+'px';loupe.style.top=Math.max(8,top)+'px';
+ $('pdfLoupe').querySelector('.pdf-loupe-foot').textContent=`Střed kříže = bod ${pinned?'označení':'kurzoru'} · ${Math.round(p.x)} / ${Math.round(p.y)} px`;
+ loupe.classList.add('visible');pdfLoupePinned=!!pinned;
+}
+function showPdfLoupe(e){
+ if(!pdfLoupeEnabled||pdfPanState){$('pdfLoupe').classList.remove('visible');return;}
+ const rect=pdfCanvas.getBoundingClientRect();
+ if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){if(!pdfLoupePinned)$('pdfLoupe').classList.remove('visible');return;}
+ renderPdfLoupeAtPoint(pdfPointFromEvent(e),e.clientX,e.clientY,false);
+}
+function showPdfLoupeAtPoint(p){if(!pdfLoupeEnabled||pdfPanState){$('pdfLoupe').classList.remove('visible');return;}const c=pdfPointToClient(p);renderPdfLoupeAtPoint(p,c.x,c.y,true);}
+$('pdfCanvasWrap').addEventListener('pointerdown',e=>{
+ if(pdfPanState||pdfPanMode||pdfManualMode||!pdfCalPoints.length)return;
+ const idx=nearestPdfCalibrationPoint(e,24);
+ if(idx>=0){pdfCalDragIndex=idx;pdfCalDragMoved=false;pdfCalEditIndex=idx;pdfCalMode=true;pdfLoupePinned=false;pdfLivePointer=pdfPointFromEvent(e);setPdfPanMode(false);$('pdfCanvasWrap').classList.add('pdf-calibrating');invalidatePdfCalibration();
+  try{$('pdfCanvasWrap').setPointerCapture(e.pointerId);}catch(err){}
+  e.preventDefault();e.stopPropagation();updatePdfCalibrationControls();showPdfLoupe(e);
+ }
+});
+$('pdfCanvasWrap').addEventListener('pointerleave',()=>{if(!pdfPanState&&pdfCalDragIndex<0&&!pdfLoupePinned)$('pdfLoupe').classList.remove('visible');});
+window.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){$('pdfLoupe').classList.remove('visible');if(pdfCalEditIndex>=0){pdfCalEditIndex=-1;updatePdfCalibrationControls();}}
+ if((e.key==='Delete'||e.key==='Backspace')&&pdfCalEditIndex>=0){e.preventDefault();deletePdfCalPoint();}
+});
+$('pdfCanvasWrap').addEventListener('pointerup',()=>{
+ if(pdfCalDragIndex>=0){const idx=pdfCalDragIndex,p=pdfCalPoints[idx];pdfCalSuppressClick=pdfCalDragMoved;pdfCalDragIndex=-1;pdfLivePointer=null;pdfCalMode=pdfCalPoints.length<2; if(pdfCalPoints.length>=2){$('pdfCanvasWrap').classList.remove('pdf-calibrating');}updatePdfCalibrationControls();drawPdfOverlay();if(p)showPdfLoupeAtPoint(p);}
+ if(!pdfPanState&&pdfCalDragIndex<0&&pdfCalPoints.length===0)$('pdfLoupe').classList.remove('visible');
+});
+function pdfOverlaySize(){pdfOverlay.width=pdfCanvas.width;pdfOverlay.height=pdfCanvas.height;syncPdfOverlayLayout();drawPdfOverlay();}
+window.addEventListener('resize',()=>requestAnimationFrame(syncPdfOverlayLayout));
+$('pdfCanvasWrap').addEventListener('scroll',()=>requestAnimationFrame(syncPdfOverlayLayout),{passive:true});
+function clearPdfOverlay(){pdfOverlayCtx.clearRect(0,0,pdfOverlay.width,pdfOverlay.height);}
+function drawPdfOverlay(){
+ if(!pdfOverlay.width||!pdfOverlay.height)return;
+ clearPdfOverlay();
+ const cssPerPixel=pdfCanvas.width?pdfCanvas.getBoundingClientRect().width/pdfCanvas.width:1;
+ const u=1/Math.max(cssPerPixel,.0001);
+ const palette=[
+  ['rgba(16,157,139,.25)','#087e70'],['rgba(43,112,190,.23)','#1d5fa7'],
+  ['rgba(217,119,6,.23)','#b45309'],['rgba(124,58,237,.22)','#6d28d9'],
+  ['rgba(219,39,119,.22)','#be185d'],['rgba(14,165,233,.22)','#0369a1'],
+  ['rgba(132,204,22,.22)','#4d7c0f'],['rgba(249,115,22,.22)','#c2410c'],
+  ['rgba(100,116,139,.22)','#475569'],['rgba(168,85,247,.22)','#7e22ce']
+ ];
+ pdfManualRooms.forEach((room,i)=>{
+  if(!room.pixelPoints||room.pixelPoints.length<3)return;
+  const p=room.pixelPoints,colors=palette[i%palette.length];
+  pdfOverlayCtx.beginPath();pdfOverlayCtx.moveTo(p[0].x,p[0].y);
+  for(let j=1;j<p.length;j++)pdfOverlayCtx.lineTo(p[j].x,p[j].y);
+  pdfOverlayCtx.closePath();
+  pdfOverlayCtx.fillStyle=colors[0];pdfOverlayCtx.strokeStyle=colors[1];
+  pdfOverlayCtx.lineWidth=(i===pdfSelectedManualRoom?3:2)*u;
+  pdfOverlayCtx.fill();pdfOverlayCtx.stroke();
+
+  // Kóty jednotlivých stran: délka se počítá z kalibrace, nikoli ze zoomu.
+  const ppm=pdfCalibration?.pixelsPerMetre||0;
+  const center=p.reduce((a,v)=>({x:a.x+v.x/p.length,y:a.y+v.y/p.length}),{x:0,y:0});
+  if(ppm>0){
+   for(let j=0;j<p.length;j++){
+    const a=p[j],b=p[(j+1)%p.length],dx=b.x-a.x,dy=b.y-a.y;
+    const len=Math.hypot(dx,dy)/ppm;
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    let nx=-dy,ny=dx,n=Math.hypot(nx,ny)||1;nx/=n;ny/=n;
+    // Kótu umísti na vnější stranu obrysu, aby nepřekrývala plochu.
+    if((mx-center.x)*nx+(my-center.y)*ny<0){nx=-nx;ny=-ny;}
+    const tx=mx+nx*15*u,ty=my+ny*15*u;
+    const label=len.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})+' m';
+    pdfOverlayCtx.save();pdfOverlayCtx.font=`bold ${12*u}px Arial`;
+    pdfOverlayCtx.textAlign='center';pdfOverlayCtx.textBaseline='middle';
+    pdfOverlayCtx.lineWidth=3.5*u;pdfOverlayCtx.strokeStyle='rgba(255,255,255,.96)';
+    pdfOverlayCtx.strokeText(label,tx,ty);pdfOverlayCtx.fillStyle='#7c2d12';pdfOverlayCtx.fillText(label,tx,ty);
+    pdfOverlayCtx.restore();
+   }
+  }
+  // Centroid of polygon for the inner room label and area summary.
+  let crossSum=0,cx=0,cy=0;
+  for(let j=0;j<p.length;j++){
+   const a=p[j],b=p[(j+1)%p.length],cross=a.x*b.y-b.x*a.y;
+   crossSum+=cross;cx+=(a.x+b.x)*cross;cy+=(a.y+b.y)*cross;
+  }
+  if(Math.abs(crossSum)>1e-6){cx/=3*crossSum;cy/=3*crossSum;}else{cx=center.x;cy=center.y;}
+  const roomName=room.name||('Místnost '+(i+1));
+  const perimeter=room.worldPts.reduce((sum,a,j)=>{
+   const b=room.worldPts[(j+1)%room.worldPts.length];return sum+Math.hypot(b.x-a.x,b.y-a.y);
+  },0);
+  const areaText=room.area.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})+' m²';
+  const volumeText=(room.height>0?(room.area*room.height).toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})+' m³':'výška nezadána');
+  const perText=perimeter.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})+' m';
+  pdfOverlayCtx.save();
+  const font=Math.max(10,12*u),small=Math.max(9,10*u);
+  pdfOverlayCtx.font=`bold ${font}px Arial`;
+  const titleW=pdfOverlayCtx.measureText(roomName).width;
+  pdfOverlayCtx.font=`bold ${small}px Arial`;
+  const areaW=pdfOverlayCtx.measureText(areaText).width,perW=pdfOverlayCtx.measureText('Obvod: '+perText).width;
+  pdfOverlayCtx.font=`bold ${small}px Arial`;const volW=pdfOverlayCtx.measureText(volumeText).width;
+  const boxW=Math.max(titleW,areaW,perW,volW)+20*u,boxH=60*u;
+  const left=cx+(room.labelOffset?.x||0)-boxW/2,top=cy+(room.labelOffset?.y||0)-boxH/2;
+  pdfOverlayCtx.fillStyle=room.color||'#087e70';
+  pdfOverlayCtx.beginPath();pdfOverlayCtx.roundRect(left,top,boxW,boxH,7*u);pdfOverlayCtx.fill();
+  pdfOverlayCtx.textAlign='center';pdfOverlayCtx.textBaseline='middle';
+  pdfOverlayCtx.font=`bold ${font}px Arial`;pdfOverlayCtx.fillStyle='#ffffff';
+  pdfOverlayCtx.fillText(roomName,cx,top+11*u);
+  pdfOverlayCtx.font=`bold ${small}px Arial`;pdfOverlayCtx.fillStyle='#b9f2e7';
+  pdfOverlayCtx.fillText(areaText,cx,top+25*u);
+  pdfOverlayCtx.fillStyle='#ffffff';pdfOverlayCtx.fillText(volumeText,cx,top+38*u);
+  pdfOverlayCtx.fillStyle='#e2e8f0';pdfOverlayCtx.fillText('Obvod: '+perText,cx,top+51*u);
+  pdfOverlayCtx.restore();
+ });
+ if(pdfCalPoints.length){
+  pdfOverlayCtx.save();pdfOverlayCtx.lineCap='round';
+  if(pdfCalPoints.length===2){pdfOverlayCtx.strokeStyle='#e28b22';pdfOverlayCtx.lineWidth=1.8*u;pdfOverlayCtx.setLineDash([8*u,5*u]);pdfOverlayCtx.beginPath();pdfOverlayCtx.moveTo(pdfCalPoints[0].x,pdfCalPoints[0].y);pdfOverlayCtx.lineTo(pdfCalPoints[1].x,pdfCalPoints[1].y);pdfOverlayCtx.stroke();pdfOverlayCtx.setLineDash([]);}
+  pdfCalPoints.forEach((p,i)=>{
+   const active=pdfCalEditIndex===i||pdfCalDragIndex===i;pdfOverlayCtx.strokeStyle=active?'#0f766e':'#e11d48';pdfOverlayCtx.fillStyle='#ffffff';pdfOverlayCtx.lineWidth=1.7*u;
+   const r=(active?12:10)*u,gap=3*u;pdfOverlayCtx.beginPath();
+   pdfOverlayCtx.moveTo(p.x-r,p.y);pdfOverlayCtx.lineTo(p.x-gap,p.y);pdfOverlayCtx.moveTo(p.x+gap,p.y);pdfOverlayCtx.lineTo(p.x+r,p.y);
+   pdfOverlayCtx.moveTo(p.x,p.y-r);pdfOverlayCtx.lineTo(p.x,p.y-gap);pdfOverlayCtx.moveTo(p.x,p.y+gap);pdfOverlayCtx.lineTo(p.x,p.y+r);pdfOverlayCtx.stroke();
+   pdfOverlayCtx.fillStyle=pdfOverlayCtx.strokeStyle;pdfOverlayCtx.fillRect(p.x-1.6*u,p.y-1.6*u,3.2*u,3.2*u);
+   pdfOverlayCtx.font=`bold ${12*u}px Arial`;pdfOverlayCtx.lineWidth=2.5*u;pdfOverlayCtx.strokeStyle='#fff';pdfOverlayCtx.strokeText(String(i+1),p.x+11*u,p.y-9*u);pdfOverlayCtx.fillStyle='#a61b3b';pdfOverlayCtx.fillText(String(i+1),p.x+11*u,p.y-9*u);
+  });pdfOverlayCtx.restore();
+ }
+ if(pdfManualPoints.length){
+  pdfOverlayCtx.strokeStyle='#c15c20';pdfOverlayCtx.fillStyle='rgba(224,139,32,.12)';pdfOverlayCtx.lineWidth=2*u;
+  pdfOverlayCtx.beginPath();pdfOverlayCtx.moveTo(pdfManualPoints[0].x,pdfManualPoints[0].y);
+  pdfManualPoints.slice(1).forEach(p=>pdfOverlayCtx.lineTo(p.x,p.y));
+  if(!pdfManualMode&&pdfManualPoints.length>=3){pdfOverlayCtx.closePath();pdfOverlayCtx.fill();}
+  pdfOverlayCtx.stroke();
+  pdfManualPoints.forEach(p=>{pdfOverlayCtx.beginPath();pdfOverlayCtx.arc(p.x,p.y,4*u,0,Math.PI*2);pdfOverlayCtx.fillStyle='#c15c20';pdfOverlayCtx.fill();});
+  if(pdfCalibration&&pdfManualPoints.length>=2){
+   const pts=pdfManualPoints,fmt=v=>v.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2});
+   pdfOverlayCtx.save();pdfOverlayCtx.font=`bold ${12*u}px Arial`;pdfOverlayCtx.textAlign='center';pdfOverlayCtx.textBaseline='middle';
+   const edgeCount=pdfManualMode?pts.length-1:pts.length;
+   for(let i=0;i<edgeCount;i++){
+    const a=pts[i],b=pts[(i+1)%pts.length],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
+    if(d<1)continue;
+    const len=d/pdfCalibration.pixelsPerMetre,mx=(a.x+b.x)/2-dy/d*14*u,my=(a.y+b.y)/2+dx/d*14*u,label=fmt(len)+' m';
+    pdfOverlayCtx.lineWidth=3*u;pdfOverlayCtx.strokeStyle='#fff';pdfOverlayCtx.strokeText(label,mx,my);pdfOverlayCtx.fillStyle='#123b50';pdfOverlayCtx.fillText(label,mx,my);
+   }
+   if(pts.length>=3){
+    const world=pts.map(p=>({x:p.x/pdfCalibration.pixelsPerMetre,y:p.y/pdfCalibration.pixelsPerMetre}));
+    const ar=pdfPolyArea(world),cx=pts.reduce((v,p)=>v+p.x,0)/pts.length,cy=pts.reduce((v,p)=>v+p.y,0)/pts.length,label=fmt(ar)+' m²';
+    pdfOverlayCtx.font=`bold ${15*u}px Arial`;pdfOverlayCtx.lineWidth=4*u;pdfOverlayCtx.strokeStyle='#fff';pdfOverlayCtx.strokeText(label,cx,cy);pdfOverlayCtx.fillStyle='#087e70';pdfOverlayCtx.fillText(label,cx,cy);
+   }
+   pdfOverlayCtx.restore();
+  }
+ }
+}
+async function ensurePdfJs(){
+ if(window.pdfjsLib)return window.pdfjsLib;
+ if(window.pdfJsLoading)return window.pdfJsLoading;
+ window.pdfJsLoading=new Promise((resolve,reject)=>{
+  const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  sc.onload=()=>{if(!window.pdfjsLib){reject(new Error('Knihovnu PDF.js se nepodařilo inicializovat.'));return;}window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';resolve(window.pdfjsLib);};
+  sc.onerror=()=>reject(new Error('Nepodařilo se načíst PDF.js. Zkontroluj připojení k internetu.'));document.head.appendChild(sc);
+ });
+ return window.pdfJsLoading;
+}
+async function renderPdfPage(pageNo){
+ if(!pdfDoc)return;setPdfPanMode(false);$('pdfLoupe').classList.remove('visible');pdfCurrentPage=pageNo;
+ if(pdfRenderTask){try{pdfRenderTask.cancel();}catch(e){}}
+ const page=await pdfDoc.getPage(pageNo),base=page.getViewport({scale:1}),scale=Math.min(5,4200/Math.max(base.width,base.height));
+ const viewport=page.getViewport({scale});pdfPageScale=scale;
+ pdfCanvas.width=Math.round(viewport.width);pdfCanvas.height=Math.round(viewport.height);resetPdfZoom();
+ pdfRoomLabelSeeds=[];pdfRoomReferenceAreas={};
+ 
+ pdfOverlay.width=pdfCanvas.width;pdfOverlay.height=pdfCanvas.height;pdfOverlay.style.width='100%';pdfOverlay.style.height='auto';
+ pdfRenderTask=page.render({canvasContext:pdfCtx,viewport});
+ try{await pdfRenderTask.promise;}catch(e){if(e?.name!=='RenderingCancelledException')throw e;}
+ pdfManualRooms=[];pdfSelectedManualRoom=-1;pdfLastUnmatchedRoomLabels=[];pdfCalibration=null;pdfCalPoints=[];pdfManualPoints=[];pdfManualMode=false;pdfCalMode=false;pdfCalEditIndex=-1;pdfCalDragIndex=-1;pdfLivePointer=null;pdfCalibrationDirty=false;updatePdfCalibrationControls();$('pdfCanvasWrap').classList.remove('pdf-calibrating');
+ $('pdfScaleReadout').textContent='Měřítko není nastaveno.';$('pdfScaleReadout').style.color='';$('pdfApplyCalibration').disabled=true;$('pdfAddRoomBtn').disabled=true;$('pdfClearBtn').disabled=true;$('pdfRoomList').innerHTML='';pdfLoupePinned=false;$('pdfLoupe').classList.remove('visible');
+ $('pdfCalibrateBtn').disabled=false;$('pdfCalibrateBtn').textContent='① Nastavit měřítko';$('pdfManualBtn').disabled=!pdfCalibration;updatePdfCalibrationControls();updatePdfCalibrationStep('PDF je načteno. Klikni na „Nastavit měřítko“, potom označ dva konce známé kóty.','good');$('pdfPrevPage').disabled=pageNo<=1;$('pdfNextPage').disabled=pageNo>=pdfDoc.numPages;
+ $('pdfPageSelect').value=String(pageNo);requestAnimationFrame(()=>{syncPdfOverlayLayout();drawPdfOverlay();});
+ pdfStatus(`Načtena stránka ${pageNo} z ${pdfDoc.numPages}. Přibliž kótu ovládáním zvětšení, potom nastav měřítko.`,'good');
+}
+$('pdfFileInput').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ if(file.type!=='application/pdf'&&!file.name.toLowerCase().endsWith('.pdf')){pdfStatus('Vyber soubor PDF.','bad');return;}
+ pdfStatus('Načítám PDF…');
+ try{
+  const lib=await ensurePdfJs(),data=new Uint8Array(await file.arrayBuffer());
+  pdfDoc=await lib.getDocument({data}).promise;pdfFileName=file.name;
+  $('pdfPageSelect').innerHTML=Array.from({length:pdfDoc.numPages},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');$('pdfPageSelect').disabled=pdfDoc.numPages<=1;
+  $('pdfPrevPage').disabled=true;$('pdfNextPage').disabled=pdfDoc.numPages<=1;
+  await renderPdfPage(1);
+ }catch(err){pdfStatus('PDF se nepodařilo načíst: '+(err?.message||err),'bad');}
+});
+$('pdfPageSelect').addEventListener('change',e=>renderPdfPage(Number(e.target.value)).catch(err=>pdfStatus(err.message,'bad')));
+$('pdfPrevPage').addEventListener('click',()=>renderPdfPage(Math.max(1,pdfCurrentPage-1)).catch(err=>pdfStatus(err.message,'bad')));
+$('pdfNextPage').addEventListener('click',()=>renderPdfPage(Math.min(pdfDoc?.numPages||1,pdfCurrentPage+1)).catch(err=>pdfStatus(err.message,'bad')));
+$('pdfCalibrateBtn').addEventListener('click',()=>{
+ if(!pdfDoc||!pdfCanvas.width||!pdfCanvas.height){pdfStatus('Nejprve nahraj PDF a počkej na vykreslení stránky.','warn');return;}
+ setPdfPanMode(false);pdfCalMode=true;pdfManualMode=false;pdfCalEditIndex=-1;pdfCalDragIndex=-1;pdfCalPoints=[];pdfManualPoints=[];pdfLivePointer=null;pdfLoupePinned=false;$('pdfLoupe').classList.remove('visible');invalidatePdfCalibration();
+ $('pdfCanvasWrap').classList.add('pdf-calibrating');updatePdfCalibrationControls();drawPdfOverlay();
+ updatePdfCalibrationStep('KALIBRACE AKTIVNÍ · Klikni přímo do výkresu na první konec kóty. Potom klikni na druhý konec.','warn');
+ pdfStatus('Kalibrace spuštěna. Označ první a druhý konec stejné známé kóty.','warn');
+ $('pdfCalibHelp').textContent='Postup: 1. Klikni na první konec známé kóty. 2. Klikni na druhý konec. 3. Zadej její skutečnou délku v metrech. 4. Stiskni Potvrdit měřítko. Mimo kalibraci posouvej výkres tažením; během kalibrace podrž mezerník a táhni. Označené body zůstanou zachované.';
+});
+$('pdfEditCalPoint1').addEventListener('click',()=>armPdfCalPointEdit(0));
+$('pdfEditCalPoint2').addEventListener('click',()=>armPdfCalPointEdit(1));
+$('pdfDeleteCalPoint').addEventListener('click',deletePdfCalPoint);
+$('pdfClearCalPoints').addEventListener('click',()=>{
+ pdfCalPoints=[];pdfCalEditIndex=-1;pdfCalDragIndex=-1;pdfCalMode=true;pdfLivePointer=null;invalidatePdfCalibration();$('pdfCanvasWrap').classList.add('pdf-calibrating');updatePdfCalibrationControls();drawPdfOverlay();
+ updatePdfCalibrationStep('Oba body byly smazány. Označ znovu první a druhý konec kóty.','warn');pdfStatus('Oba body byly smazány. Označ znovu první a druhý konec kóty.','warn');
+});
+function updatePdfCalibrationStep(message,type=''){
+ const step=$('pdfCalStep');
+ if(step){step.textContent=message;step.style.color=type==='good'?'#087e70':type==='bad'?'#a12b1c':type==='warn'?'#8a5410':'';}
+}
+
+function showPdfInlineScaleEntry(){
+ const el=$('pdfScaleInline');if(!el||pdfCalPoints.length!==2)return;
+ const a=pdfCalPoints[0],b=pdfCalPoints[1],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+ const cr=pdfCanvas.getBoundingClientRect(),wr=$('pdfCanvasWrap').getBoundingClientRect();
+ const cssX=(cr.left-wr.left)+mid.x*(cr.width/pdfCanvas.width);
+ const cssY=(cr.top-wr.top)+mid.y*(cr.height/pdfCanvas.height);
+ el.style.left=cssX+'px';el.style.top=cssY+'px';el.style.display='block';
+ $('pdfInlineKnownLength').value=$('pdfKnownLength').value||'4,00';
+ $('pdfInlineKnownLength').focus();$('pdfInlineKnownLength').select();
+}
+function hidePdfInlineScaleEntry(){const el=$('pdfScaleInline');if(el)el.style.display='none';}
+
+function handlePdfCanvasClick(e){
+ if(!pdfDoc)return;
+ if(pdfPanMode)return;
+ if(pdfCalSuppressClick){pdfCalSuppressClick=false;return;}
+ const r=pdfCanvas.getBoundingClientRect();
+ // The event is delegated from the wrapper, not just the canvas. This also
+ // handles clicks retargeted to the wrapper after pointer capture while dragging.
+ if(!r.width||!r.height||e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
+ const p=pdfPointFromEvent(e);
+ if(pdfCalMode){
+  if(pdfCalEditIndex>=0){
+   hidePdfInlineScaleEntry();
+   const idx=pdfCalEditIndex;pdfCalPoints[idx]=p;pdfCalEditIndex=-1;invalidatePdfCalibration();pdfLivePointer=null;
+   pdfCalMode=pdfCalPoints.length<2;
+   updatePdfCalibrationControls();drawPdfOverlay();
+   if(pdfCalPoints.length===2){$('pdfCanvasWrap').classList.remove('pdf-calibrating');updatePdfCalibrationStep('Oba body jsou označeny. Zkontroluj červené kříže, zadej známou délku a stiskni „Potvrdit měřítko“.','warn');}
+   else{$('pdfCanvasWrap').classList.add('pdf-calibrating');updatePdfCalibrationStep(`Bod ${idx+1} byl přesunut. Nyní označ druhý konec kóty.`,'warn');}
+   showPdfLoupeAtPoint(p);pdfStatus(`Bod ${idx+1} byl přesunut. Lupa nyní ukazuje přesně uložený bod. Kalibraci potvrď znovu.`, 'warn');return;
+  }
+  if(pdfCalPoints.length<2){
+   pdfCalPoints.push(p);hidePdfInlineScaleEntry();invalidatePdfCalibration();drawPdfOverlay();updatePdfCalibrationControls();showPdfLoupeAtPoint(p);
+   if(pdfCalPoints.length===2){
+    pdfCalMode=false;pdfLivePointer=null;$('pdfCanvasWrap').classList.remove('pdf-calibrating');
+    updatePdfCalibrationStep('✓ Oba body označeny. Zadej délku mezi nimi v metrech a klikni na „Potvrdit měřítko“.','good');
+    pdfStatus('Oba body jsou vybrány. Zadej známou délku a potvrď měřítko.','warn');showPdfInlineScaleEntry();
+   }else{
+    updatePdfCalibrationStep('Bod 1/2 označen. Nyní klikni na druhý konec stejné kóty.','warn');
+    pdfStatus('Bod 1 označen. Lupa ukazuje uložený bod. Nyní vyber druhý konec kóty.','warn');
+   }
+  }
+  return;
+ }
+ if(pdfManualMode){
+  pdfManualPoints.push(p);drawPdfOverlay();$('pdfManualCloseBtn').disabled=pdfManualPoints.length<3;$('pdfManualUndoBtn').disabled=pdfManualPoints.length===0;$('pdfManualPointCount').textContent=pdfManualPoints.length+' bodů';
+  pdfStatus(`Ruční obrys: ${pdfManualPoints.length} bodů. Pokračuj po vnitřním líci stěn.`,'warn');
+ }
+}
+// Listen on the complete drawing wrapper. On some browsers, pointer capture
+// during point editing retargets the final click from the canvas to its parent.
+$('pdfCanvasWrap').addEventListener('click',handlePdfCanvasClick,false);
+function applyPdfCalibration(enteredLength){
+ if(!pdfDoc||!pdfCanvas.width||!pdfCanvas.height){pdfStatus('PDF stránka není připravena. Nahraj výkres znovu.','bad');return false;}
+ if(pdfCalPoints.length!==2){updatePdfCalibrationStep(`Jsou označeny ${pdfCalPoints.length} ze 2 bodů. Označ oba konce známé kóty.`,'warn');pdfStatus('Nejprve označ oba konce známé kóty.','warn');return false;}
+ const length=parsePdfDecimal(enteredLength??$('pdfKnownLength').value),px=Math.hypot(pdfCalPoints[1].x-pdfCalPoints[0].x,pdfCalPoints[1].y-pdfCalPoints[0].y);
+ if(!(Number.isFinite(length)&&length>0&&px>1)){pdfStatus('Zadej kladnou délku (např. 4,00 m) a vyber dva různé body.','bad');$('pdfInlineKnownLength').focus();return false;}
+ const ppm=px/length;
+ if(!Number.isFinite(ppm)||ppm<=0){pdfStatus('Kalibraci nelze vypočítat. Zkontroluj umístění obou bodů.','bad');return false;}
+ pdfCalibration={pixelsPerMetre:ppm,knownLength:length,points:pdfCalPoints.map(p=>({...p}))};pdfCalibrationDirty=false;pdfCalPoints=[];
+ // Schovej vstup hned po úspěšném potvrzení a až poté aktualizuj kreslicí plochu.
+ hidePdfInlineScaleEntry();
+ $('pdfScaleReadout').textContent=`MĚŘÍTKO POTVRZENO · ${ppm.toFixed(2)} px/m · známá délka ${length.toLocaleString('cs-CZ')} m`;
+ $('pdfScaleReadout').style.color='#087e70';$('pdfManualBtn').disabled=!pdfCalibration;pdfCalEditIndex=-1;pdfCalMode=false;pdfLoupePinned=false;$('pdfLoupe').classList.remove('visible');$('pdfCanvasWrap').classList.remove('pdf-calibrating');updatePdfCalibrationControls();drawPdfOverlay();
+ updatePdfCalibrationStep(`✓ Měřítko potvrzeno: ${ppm.toFixed(2)} px/m. Nyní můžeš ručně obkreslit první místnost.`,'good');
+ pdfStatus('Měřítko bylo úspěšně potvrzeno. Začni ručně označovat místnosti.','good');
+ return true;
+}
+$('pdfInlineApply').addEventListener('click',e=>{
+ e.preventDefault();e.stopPropagation();
+ $('pdfKnownLength').value=$('pdfInlineKnownLength').value;
+ applyPdfCalibration();
+});
+$('pdfScaleInline').addEventListener('pointerdown',e=>e.stopPropagation());
+$('pdfScaleInline').addEventListener('click',e=>e.stopPropagation());
+$('pdfInlineKnownLength').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();$('pdfInlineApply').click();}});
+$('pdfApplyCalibration').addEventListener('click',e=>{
+ e.preventDefault();e.stopPropagation();
+ const value=$('pdfInlineKnownLength').value||$('pdfKnownLength').value;
+ $('pdfKnownLength').value=value;
+ applyPdfCalibration(value);
+});
+function pdfPolyArea(points){
+ if(!Array.isArray(points)||points.length<3)return 0;
+ let twice=0;
+ for(let i=0;i<points.length;i++){
+  const a=points[i],b=points[(i+1)%points.length];
+  twice+=a.x*b.y-b.x*a.y;
+ }
+ return Math.abs(twice)/2;
+}
+function renderPdfRoomList(){
+ const box=$('pdfRoomList');
+ if(!pdfManualRooms.length){box.innerHTML='';$('pdfAddRoomBtn').disabled=true;return;}
+ box.innerHTML=pdfManualRooms.map((r,i)=>{
+  const ids=r.roomIds||[],ref=ids.length?ids.reduce((sum,id)=>sum+(Number(pdfRoomReferenceAreas[id])||0),0):0;
+  const diff=ref>0?r.area-ref:null,pct=ref>0?diff/ref*100:null,mismatch=Number.isFinite(pct)&&Math.abs(pct)>10;
+  const refText=ref>0?` · projekt ${ref.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} m² · rozdíl ${diff>=0?'+':''}${diff.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} m² (${pct>=0?'+':''}${pct.toFixed(1)} %)`:'';
+  const detail=r.name||(ids.length?`Místnost ${ids.join(' + ')}`:'Ruční místnost '+(i+1));
+  const warning=r.added?' · již přidáno do projektu':(mismatch?' · zkontrolovat hranici':'');
+  const sides=r.worldPts.map((pt,j)=>Math.hypot(r.worldPts[(j+1)%r.worldPts.length].x-pt.x,r.worldPts[(j+1)%r.worldPts.length].y-pt.y));
+  const sideText=sides.map((v,j)=>`${j+1}. strana ${v.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} m`).join(' · ');
+  const height=Number(r.height)||0,volume=height>0?r.area*height:0;
+  return `<div class="pdf-room-item ${i===pdfSelectedManualRoom?'active':''}" style="align-items:flex-start">
+   <input type="color" data-pdf-color="${i}" value="${r.color||'#087e70'}" title="Barva označení místnosti" aria-label="Barva místnosti" style="width:34px;height:34px;padding:2px;border:1px solid #cbd5e1;border-radius:6px;flex:0 0 34px;cursor:pointer">
+   <div style="flex:1;min-width:0"><b>${detail}</b>
+    <div class="small muted">Plocha ${r.area.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} m² · obvod ${sides.reduce((x,y)=>x+y,0).toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} m · výška ${height.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} m · objem ${volume.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} m³ · ${r.worldPts.length} vrcholů${refText}${warning}</div>
+    <div class="small" style="margin-top:4px;line-height:1.5">${sideText}</div>
+   </div>
+   <button class="secondary" type="button" data-pdf-room="${i}">${i===pdfSelectedManualRoom?'Vybráno':'Vybrat'}</button>
+   <button class="danger" type="button" data-pdf-remove="${i}" title="Odstranit tento ruční obrys">Odstranit</button>
+  </div>`;
+ }).join('');
+ box.querySelectorAll('[data-pdf-room]').forEach(b=>b.addEventListener('click',()=>selectPdfRoom(Number(b.dataset.pdfRoom))));
+ box.querySelectorAll('[data-pdf-remove]').forEach(b=>b.addEventListener('click',()=>removePdfRoomCandidate(Number(b.dataset.pdfRemove))));
+ box.querySelectorAll('[data-pdf-color]').forEach(b=>b.addEventListener('input',e=>{const r=pdfManualRooms[Number(e.target.dataset.pdfColor)];if(r){r.color=e.target.value;drawPdfOverlay();}}));
+ $('pdfAddRoomBtn').disabled=pdfSelectedManualRoom<0||!!pdfManualRooms[pdfSelectedManualRoom]?.added;drawPdfOverlay();
+}
+function removePdfRoomCandidate(i){
+ if(i<0||i>=pdfManualRooms.length)return;pdfManualRooms.splice(i,1);if(pdfSelectedManualRoom===i)pdfSelectedManualRoom=-1;else if(pdfSelectedManualRoom>i)pdfSelectedManualRoom--;
+ renderPdfRoomList();$('pdfClearBtn').disabled=!pdfManualRooms.length;pdfStatus('Vybraný ruční obrys byl odstraněn. Ostatní obrysy zůstaly zachovány.','warn');
+}
+function selectPdfRoom(i){if(i<0||i>=pdfManualRooms.length)return;pdfSelectedManualRoom=i;const r=pdfManualRooms[i];$('pdfRoomName').value=r.name||(r.roomIds&&r.roomIds.length?'Místnost '+r.roomIds.join(' + '):'Místnost '+(i+1));renderPdfRoomList();}
+$('pdfRoomName').addEventListener('input',()=>{
+ const r=pdfManualRooms[pdfSelectedManualRoom];
+ if(!r)return;
+ r.name=$('pdfRoomName').value.trim();
+ renderPdfRoomList();
+});
+
+$('pdfManualBtn').addEventListener('click',()=>{
+ setPdfPanMode(false);if(!pdfCalibration){pdfStatus('Před ručním obkreslením nejprve nastav měřítko.','warn');return;}
+ pdfManualMode=true;pdfCalMode=false;pdfCalEditIndex=-1;pdfCalDragIndex=-1;pdfLivePointer=null;pdfCalPoints=[];$('pdfLoupe').classList.remove('visible');$('pdfCanvasWrap').classList.remove('pdf-calibrating');pdfManualPoints=[];$('pdfRoomName').value='';$('pdfManualCloseBtn').disabled=true;$('pdfManualUndoBtn').disabled=true;$('pdfManualCancelBtn').disabled=false;$('pdfManualBtn').disabled=true;$('pdfManualBtn').textContent='✎ Obkreslování probíhá';$('pdfManualPointCount').textContent='0 bodů';$('pdfAddRoomBtn').disabled=true;drawPdfOverlay();pdfStatus('Ruční obkreslení je aktivní. Klikáním označuj vnitřní rohy stěn po směru obvodu. Potřebuješ alespoň 3 body.','warn');
+});
+$('pdfManualCloseBtn').addEventListener('click',()=>{
+ if(pdfManualPoints.length<3)return;const p=pdfManualPoints.slice(),xs=p.map(v=>v.x),ys=p.map(v=>v.y),left=Math.min(...xs),bottom=Math.max(...ys);
+ const worldPts=p.map(v=>({x:(v.x-left)/pdfCalibration.pixelsPerMetre,y:(bottom-v.y)/pdfCalibration.pixelsPerMetre}));
+ if(typeof polygonIsSimple==='function'&&!polygonIsSimple(worldPts)){pdfStatus('Obrys se kříží sám se sebou. Vrať poslední bod a označ rohy znovu.','bad');return;}
+ const area=pdfPolyArea(worldPts);if(area<=0){pdfStatus('Ruční obrys nemá platnou plochu.','bad');return;}
+ const room={pixelPoints:p,worldPts,area,bounds:{left,top:Math.min(...ys),right:Math.max(...xs),bottom},manual:true,roomIds:[],name:$('pdfRoomName').value.trim()||('Místnost '+(pdfManualRooms.length+1)),height:Math.max(0,Number($('pdfRoomHeight').value)||0),color:['#087e70','#1d5fa7','#b45309','#6d28d9','#be185d','#0369a1','#4d7c0f','#c2410c','#475569','#7e22ce'][pdfManualRooms.length%10],labelOffset:{x:0,y:0}};
+ room.roomIds=[];room.manual=true;pdfManualRooms.push(room);pdfSelectedManualRoom=pdfManualRooms.length-1;pdfManualMode=false;pdfManualPoints=[];$('pdfManualBtn').disabled=!pdfCalibration;$('pdfManualBtn').textContent='✎ Obkreslit další místnost';$('pdfManualUndoBtn').disabled=true;$('pdfManualCancelBtn').disabled=true;$('pdfManualPointCount').textContent='0 bodů';$('pdfClearBtn').disabled=false;$('pdfAddRoomBtn').disabled=false;renderPdfRoomList();$('pdfRoomName').value=room.name;pdfStatus('Ruční obrys místnosti je uzavřen. Zkontroluj název a přidej ji do projektu, nebo začni obkreslovat další místnost.','good');
+});
+$('pdfManualUndoBtn').addEventListener('click',()=>{
+ if(!pdfManualMode||!pdfManualPoints.length)return;
+ pdfManualPoints.pop();drawPdfOverlay();
+ $('pdfManualCloseBtn').disabled=pdfManualPoints.length<3;
+ $('pdfManualUndoBtn').disabled=pdfManualPoints.length===0;
+ $('pdfManualPointCount').textContent=pdfManualPoints.length+' bodů';
+ pdfStatus(pdfManualPoints.length?`Vrácen poslední bod. Zbývá ${pdfManualPoints.length} bodů.`:'Obrys je prázdný. Označ první roh místnosti.','warn');
+});
+$('pdfManualCancelBtn').addEventListener('click',()=>{
+ pdfManualMode=false;pdfManualPoints=[];drawPdfOverlay();
+ $('pdfManualCloseBtn').disabled=true;$('pdfManualUndoBtn').disabled=true;$('pdfManualCancelBtn').disabled=true;
+ $('pdfManualBtn').disabled=!pdfCalibration;$('pdfManualBtn').textContent='✎ Obkreslit další místnost';$('pdfManualPointCount').textContent='0 bodů';
+ pdfStatus('Rozpracovaný obrys byl zrušen. Již uzavřené místnosti zůstaly zachovány.','warn');
+});
+$('pdfAddRoomBtn').addEventListener('click',()=>{
+ const r=pdfManualRooms[pdfSelectedManualRoom];if(!r||r.worldPts.length<3)return;
+ const name=$('pdfRoomName').value.trim()||r.name||'Místnost '+(areas.length+1);
+ if(r.added){pdfStatus('Tato místnost už byla přidána do projektu. Obkresli další místnost.','warn');return;}
+ r.name=name;captureActiveArea();const id='area-pdf-'+Date.now()+'-'+Math.floor(Math.random()*10000);
+ const area={id,name,pts:clone(r.worldPts),closed:true,desiredLengths:new Array(r.worldPts.length).fill(null),measuredDiagonals:[null,null],rectangleMode:false,centerOffset:null,source:'PDF: '+pdfFileName};
+ areas.push(area);r.added=true;activeAreaId=id;restoreArea(area);renderAreaSelect();render();autoSave();commitHistory();renderPdfRoomList();$('pdfRoomName').value='';
+ $('hint').textContent=`Místnost „${name}“ byla převedena z PDF. Zkontroluj a případně uprav vrcholy; kóty a plocha se počítají automaticky.`;
+ pdfStatus(`Místnost „${name}“ byla přidána do projektu. Můžeš začít obkreslovat další místnost.`, 'good');
+});
+$('pdfClearBtn').addEventListener('click',()=>{pdfManualRooms=[];pdfSelectedManualRoom=-1;pdfManualPoints=[];pdfManualMode=false;$('pdfRoomList').innerHTML='';$('pdfAddRoomBtn').disabled=true;$('pdfClearBtn').disabled=true;$('pdfManualCloseBtn').disabled=true;$('pdfManualUndoBtn').disabled=true;$('pdfManualCancelBtn').disabled=true;$('pdfManualBtn').disabled=!pdfCalibration;$('pdfManualPointCount').textContent='0 bodů';$('pdfManualBtn').textContent='✎ Obkreslit další místnost';drawPdfOverlay();pdfStatus('Všechny ručně obkreslené, dosud nepřidané místnosti byly vymazány.','');});
+</script>
+
+
+<script id="two-page-navigation-script">
+(function(){
+  const pageIds=['drawingPage','pdfPage'];
+  const buttons=Array.from(document.querySelectorAll('.brand-nav-button'));
+  function showPage(id){
+    if(id==='pdfPage') return false; // PDF zaměřování je dočasně uzamčeno.
+    if(!pageIds.includes(id)) return false;
+    pageIds.forEach(pageId=>{
+      const page=document.getElementById(pageId);
+      if(page) page.hidden=(pageId!==id);
+    });
+    buttons.forEach(button=>{
+      const active=button.dataset.page===id;
+      button.classList.toggle('active',active);
+      button.setAttribute('aria-selected',active?'true':'false');
+      button.tabIndex=active?0:-1;
+    });
+    if(id==='pdfPage'){
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        window.dispatchEvent(new Event('resize'));
+        if(typeof syncPdfOverlayLayout==='function') syncPdfOverlayLayout();
+        if(typeof drawPdfOverlay==='function') drawPdfOverlay();
+      }));
+    }
+    window.scrollTo({top:0,behavior:'instant'});
+    return true;
+  }
+  buttons.forEach(button=>{
+    button.addEventListener('click',event=>{
+      event.preventDefault();
+      showPage(button.dataset.page);
+    });
+  });
+  const pdfButton=document.getElementById('navPdf');
+  if(pdfButton){pdfButton.hidden=true;pdfButton.disabled=true;pdfButton.setAttribute('aria-disabled','true');}
+  const pdfWorkspace=document.getElementById('pdfPage');
+  if(pdfWorkspace){pdfWorkspace.hidden=true;pdfWorkspace.setAttribute('inert','');}
+  // Explicit initial state prevents both workspaces being shown after reload.
+  showPage('drawingPage');
+  window.showKalkulackaPage=showPage;
+})();
+</script>
+</body></html>
