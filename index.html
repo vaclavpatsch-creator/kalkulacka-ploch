@@ -2,7 +2,7 @@
 <html lang="cs">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kalkulačka – verze 1.2.150</title>
+<title>Kalkulačka – verze 1.2.151</title>
 <style>
 :root{font-family:Arial,Helvetica,sans-serif;color:#172033;background:#f3f6fa}
 *{box-sizing:border-box}body{margin:0;padding:16px}main{max-width:1100px;margin:auto}
@@ -493,7 +493,7 @@ table th{background:#edf3f8;color:#254761}
 </style>
 </head>
 <body><main>
-<div class="brandbar"><div class="brandmark"><span></span><span></span><span></span><span></span></div><div><div class="brand-kicker">STAVEBNÍ MĚŘENÍ A VÝMĚRY</div><h1>Kalkulačka</h1><div class="brand-subtitle">Kreslení půdorysů · pevné kóty · výpočet ploch · export projektu</div></div><div class="brand-version">VERZE 1.2.150</div>
+<div class="brandbar"><div class="brandmark"><span></span><span></span><span></span><span></span></div><div><div class="brand-kicker">STAVEBNÍ MĚŘENÍ A VÝMĚRY</div><h1>Kalkulačka</h1><div class="brand-subtitle">Kreslení půdorysů · pevné kóty · výpočet ploch · export projektu</div></div><div class="brand-version">VERZE 1.2.151</div>
 <div class="brand-nav" role="tablist" aria-label="Výběr kalkulačky">
   <button type="button" class="brand-nav-button active" id="navDrawing" data-page="drawingPage" role="tab" aria-selected="true">▦ Kreslení a výpočty</button>
 </div></div>
@@ -1227,8 +1227,8 @@ function renderCenterMeasurements(q){
  const offset=centerMeasurementOffset||{x:0,y:0};
  const cx=baseX+offset.x,cy=baseY+offset.y,clearance=Math.max(0,anchor.clearance||0);
  const cert=p1CurrentCheck().ok;
- const areaText=(cert?'Plocha: ':'Náhled ≈ ')+preciseFmt(area*(unitFactor()===100?10000:1))+' '+unitArea();
- const perimeterText=(cert?'Obvod: ':'Náhled ≈ ')+shown(per)+' '+unitLength();
+ const areaText='Plocha'+(cert?': ':' ≈ ')+Number(area*(unitFactor()===100?10000:1)).toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+unitArea();
+ const perimeterText='Obvod'+(cert?': ':' ≈ ')+shownOnDrawing(per)+' '+unitLength();
  // Základní velikost tabulky se přizpůsobí dostupnému prostoru. Celá obálka
  // tabulky se vejde do kružnice vepsané v obrazci, proto nepřesáhne žádnou hranu.
  const w=Math.max(104,Math.min(164,Math.max(areaText.length,perimeterText.length)*5.25+19));
