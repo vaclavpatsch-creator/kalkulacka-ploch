@@ -637,6 +637,7 @@ Podklad:
   <button id="renameAreaBtn" class="secondary">Přejmenovat</button>
   <label style="display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #d5e1eb;border-radius:8px;background:#fff;font-weight:700;font-size:.88rem">Barva místnosti <input id="areaColorInput" type="color" value="#75aee8" aria-label="Barva celé místnosti" style="width:38px;height:32px;padding:2px;border:0;background:transparent;cursor:pointer"></label>
   <button id="deleteAreaBtn" class="danger">Smazat plochu</button>
+  <button id="deleteRoomBtn" type="button" class="danger">Smazat místnost</button>
   <button id="saveProjectBtn" class="secondary">Uložit projekt</button>
   <button id="loadProjectBtn" class="secondary">Otevřít projekt</button>
   <button id="exportPdfBtn" class="secondary">Stáhnout PDF</button>
@@ -3188,10 +3189,10 @@ function roomGroups(){
 }
 function activeRoomId(){return areas.find(a=>a.id===activeAreaId)?.roomId||areas.find(a=>a.id===activeAreaId)?.roomName||'room-1';}
 function renderAreaSelect(){
- const current=areas.find(a=>a.id===activeAreaId);const rid=current?.roomId||current?.roomName||'room-1';
+ const current=areas.find(a=>a.id===activeAreaId);const rid=current?roomKey(current):'room-1';
  const groups=roomGroups();const rs=$('roomSelect');
  rs.innerHTML=groups.map(r=>`<option value="${escapeText(r.id)}" ${r.id===rid?'selected':''}>${escapeText(r.name)}</option>`).join('');
- const same=areas.filter(a=>(a.roomId||a.roomName)===rid);
+ const same=areas.filter(a=>roomKey(a)===rid);
  const s=$('areaSelect');s.innerHTML=same.map(a=>`<option value="${escapeText(a.id)}" ${a.id===activeAreaId?'selected':''}>${escapeText(a.name)}</option>`).join('');
  const roomName=current?.roomName||groups.find(r=>r.id===rid)?.name||'2.01';
  $('roomNameInput').value=roomName;$('roomNameDescription').textContent=roomName;
@@ -4380,7 +4381,7 @@ $('krosEditableRows').addEventListener('keydown',e=>{
 $('renameRoomBtn').onclick=renameActiveRoom;
 $('roomNameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();renameActiveRoom();}});
 $('addRoomBtn').onclick=addRoom;
-$('roomSelect').addEventListener('change',e=>{const first=areas.find(a=>(a.roomId||a.roomName)===e.target.value);if(first)switchArea(first.id);});
+$('roomSelect').addEventListener('change',e=>{const first=areas.find(a=>roomKey(a)===e.target.value);if(first)switchArea(first.id);});
 $('addAreaBtn').onclick=()=>addArea();
 
 // Vlastní dialogy pro přejmenování a mazání ploch. Nepoužívají window.prompt/
@@ -4388,10 +4389,6 @@ $('addAreaBtn').onclick=()=>addArea();
 let projectDialogAction=null;
 function openProjectDialog(action){
  const a=areas.find(x=>x.id===activeAreaId);if(!a)return;
- if(action==='delete'&&areas.length<=1){
-  $('projectStatus').textContent='Poslední plochu v projektu nelze smazat. Přidej nejprve další plochu.';
-  return;
- }
  projectDialogAction=action;
  $('projectDialogError').textContent='';
  if(action==='rename'){
@@ -4403,11 +4400,16 @@ function openProjectDialog(action){
   $('projectDialogConfirm').textContent='Uložit název';
  }
  else{
-  $('projectDialogTitle').textContent='Smazat plochu';
-  $('projectDialogMessage').textContent=`Opravdu chceš smazat plochu „${a.name||'Plocha'}“? Její geometrie a rozměry budou odstraněny z projektu.`;
+  const isRoom=action==='deleteRoom';
+  const roomName=a.roomName||'2.01';
+  const roomCount=areas.filter(x=>roomKey(x)===roomKey(a)).length;
+  $('projectDialogTitle').textContent=isRoom?'Smazat místnost':'Smazat plochu';
+  $('projectDialogMessage').textContent=isRoom
+   ?`Opravdu chceš smazat celou místnost „${roomName}“ včetně ${roomCount} ${roomCount===1?'plochy':'ploch'}? Ostatní místnosti zůstanou zachované.`
+   :`Opravdu chceš smazat plochu „${a.name||'Plocha'}“ v místnosti „${roomName}“?`;
   $('projectDialogLabel').hidden=true;
   $('projectDialogInput').hidden=true;
-  $('projectDialogConfirm').textContent='Smazat plochu';
+  $('projectDialogConfirm').textContent=isRoom?'Smazat místnost':'Smazat plochu';
  }
  $('projectDialogOverlay').hidden=false;
  if(action==='rename'){$('projectDialogInput').focus();$('projectDialogInput').select();}
@@ -4435,25 +4437,38 @@ function confirmProjectDialog(){
   closeProjectDialog();
   return;
  }
- if(action==='delete'){
-  if(areas.length<=1){$('projectDialogError').textContent='Poslední plochu v projektu nelze smazat.';return;}
-  // Nejdříve synchronizuj aktuální geometrii do projektu, aby mazání
-  // nesmazalo ani nepřepsalo změny, které ještě nebyly automaticky uloženy.
+ if(action==='delete'||action==='deleteRoom'){
   captureActiveArea();
+  const previousName=current.roomName||'2.01';
+  const targetRoomKey=roomKey(current);
   const deletedIndex=areas.findIndex(x=>x.id===activeAreaId);
-  const remaining=areas.filter(x=>x.id!==activeAreaId);
-  const nextIndex=Math.min(Math.max(deletedIndex,0),remaining.length-1);
-  areas=remaining;
-  activeAreaId=areas[nextIndex].id;
-  restoreArea(areas[nextIndex]);
-  renderAreaSelect();
-  autoSave();commitHistory();
-  $('projectStatus').textContent=`Plocha „${current.name||'Plocha'}“ byla smazána. Aktivní je nyní „${areas[nextIndex].name}“.`;
+  const remaining=action==='deleteRoom'
+   ?areas.filter(x=>roomKey(x)!==targetRoomKey)
+   :areas.filter(x=>x.id!==activeAreaId);
+  if(remaining.length){
+   areas=remaining;
+   const sameRoom=remaining.find(x=>roomKey(x)===targetRoomKey);
+   const next=action==='delete'&&sameRoom?sameRoom:remaining[Math.min(Math.max(deletedIndex,0),remaining.length-1)];
+   activeAreaId=next.id;
+  }else{
+   // Pro prázdný projekt zachovej jeden čistý, editovatelný záznam.
+   // Nikdy neobnovuj smazanou geometrii z localStorage.
+   const roomName=action==='deleteRoom'?'2.01':previousName;
+   const fresh={id:'area-'+Date.now()+'-'+Math.floor(Math.random()*10000),name:'Plocha 1',roomId:'room-'+Date.now()+'-'+Math.floor(Math.random()*10000),roomName,pts:[],closed:false,desiredLengths:[],measuredDiagonals:[null,null],extraMeasurements:[],rectangleMode:false,trapezoidMode:false,orthogonalMode:false,centerOffset:null,color:'#75aee8'};
+   areas=[fresh];activeAreaId=fresh.id;
+  }
+  const next=areas.find(x=>x.id===activeAreaId);
+  restoreArea(next);renderAreaSelect();autoSave();commitHistory();
+  $('projectStatus').textContent=action==='deleteRoom'
+   ?`Místnost „${previousName}“ byla odstraněna${remaining.length?' včetně všech jejích ploch.':' a projekt byl vyprázdněn.'}`
+   :`Plocha „${current.name||'Plocha'}“ byla odstraněna${remaining.length?'.':' a můžeš začít novým nákresem.'}`;
   closeProjectDialog();
  }
+
 }
 $('renameAreaBtn').onclick=()=>openProjectDialog('rename');
 $('deleteAreaBtn').onclick=()=>openProjectDialog('delete');
+$('deleteRoomBtn').onclick=()=>openProjectDialog('deleteRoom');
 $('projectDialogCancel').onclick=closeProjectDialog;
 $('projectDialogConfirm').onclick=confirmProjectDialog;
 $('projectDialogInput').addEventListener('keydown',e=>{
