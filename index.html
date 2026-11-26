@@ -493,7 +493,7 @@ table th{background:#edf3f8;color:#254761}
 </style>
 </head>
 <body><main>
-<div class="brandbar"><div class="brandmark"><span></span><span></span><span></span><span></span></div><div><div class="brand-kicker">STAVEBNÍ MĚŘENÍ A VÝMĚRY</div><h1>Kalkulačka</h1><div class="brand-subtitle">Kreslení půdorysů · pevné kóty · výpočet ploch · export projektu</div></div><div class="brand-version">VERZE 1.2.152</div>
+<div class="brandbar"><div class="brandmark"><span></span><span></span><span></span><span></span></div><div><div class="brand-kicker">STAVEBNÍ MĚŘENÍ A VÝMĚRY</div><h1>Kalkulačka</h1><div class="brand-subtitle">Kreslení půdorysů · pevné kóty · výpočet ploch · export projektu</div></div><div class="brand-version">VERZE 1.2.154</div>
 <div class="brand-nav" role="tablist" aria-label="Výběr kalkulačky">
   <button type="button" class="brand-nav-button active" id="navDrawing" data-page="drawingPage" role="tab" aria-selected="true">▦ Kreslení a výpočty</button>
 </div></div>
@@ -4618,23 +4618,28 @@ function buildProjectPdf(allowDraft=false){
   });
   if(pts.length>maxRows)txt(a,x+14,y+5,5.3,'Tabulka zkracena: '+maxRows+' z '+pts.length+' vrcholu.',C.muted);
  }
- // Tři místnosti na jednu stránku A4. Každá místnost zůstává jedna karta,
- // i pokud obsahuje více samostatných ploch.
- function drawRoomCard(a,room,roomAreas,x,top,w,h){
+ // Nejvyse dve mistnosti na A4, velka mistnost ma celou stranku.
+ // Vsechny plochy musi byt vykresleny; zadna se neskryva kvuli limitu.
+ function drawRoomCard(a,room,roomAreas,x,top,w,h,segment={}){
   const bottom=top-h;
   rect(a,x,bottom,w,h,C.white,C.line,.8);
   rect(a,x,top-4,w,4,C.teal);
+  // Jedna karta smí obsahovat nanejvýš 4 plochy kvůli čitelnosti.
+  // Další plochy se ale NESMÍ zahodit - získají vlastní navazující kartu.
   const validAreas=roomAreas.filter(ar=>ar.closed&&ar.pts?.length>=3&&validateClosedArea(ar).ok);
-  const totalArea=validAreas.reduce((v,ar)=>v+areaStats(ar).area,0);
-  const totalPer=validAreas.reduce((v,ar)=>v+areaStats(ar).perimeter,0);
-  txt(a,x+12,top-20,10,'MISTNOST '+room.name,C.navy,'F2');
-  txt(a,x+w-202,top-20,7,'PLOCHA '+(validAreas.length?fmt(totalArea*(unitFactor()===100?10000:1))+' '+areaUnit:'NEDOKONCENO'),C.teal,'F2');
-  txt(a,x+12,top-34,6.7,validAreas.length+' hotovych ploch  |  '+(validAreas.length?'OBVOD '+num(totalPer)+' '+unit:'NEDOKONCENY PUDORYS'),C.muted);
-  line(a,x+10,top-42,x+w-10,top-42,C.line,.65);
-  // Každý půdorys místnosti má vlastní políčko; při více plochách
-  // se šířka dělí, nesčítají se jejich délky stran dohromady.
+  const allValidAreas=segment.allRoomAreas||validAreas;
+  const totalArea=allValidAreas.reduce((v,ar)=>v+areaStats(ar).area,0);
+  const totalPer=allValidAreas.reduce((v,ar)=>v+areaStats(ar).perimeter,0);
+  const partIndex=segment.partIndex||0,partCount=segment.partCount||1,offset=segment.offset||0;
+  const partLabel=partCount>1?' (CAST '+(partIndex+1)+'/'+partCount+')':'';
+  txt(a,x+12,top-20,10,'MISTNOST '+room.name+partLabel,C.navy,'F2');
+  txt(a,x+w-202,top-20,7,'PLOCHA CELKEM '+(allValidAreas.length?fmt(totalArea*(unitFactor()===100?10000:1))+' '+areaUnit:'NEDOKONCENO'),C.teal,'F2');
   const count=validAreas.length;
-  const shownAreas=validAreas.slice(0,4);
+  const spanLabel=partCount>1?'PLOCHY '+(offset+1)+'-'+(offset+count)+' Z '+allValidAreas.length+'  |  ':'';
+  txt(a,x+12,top-34,6.7,(partCount>1?spanLabel:(count+' hotovych ploch  |  '))+(allValidAreas.length?'OBVOD CELKEM '+num(totalPer)+' '+unit:'NEDOKONCENY PUDORYS'),C.muted);
+  line(a,x+10,top-42,x+w-10,top-42,C.line,.65);
+  // Každá platná plocha se vykreslí přesně jednou v jedné z navazujících karet.
+  const shownAreas=validAreas;
   if(!count){txt(a,x+14,bottom+78,9,'Mistnost je v projektu, ale nema uzavrenou platnou plochu.',C.muted);return;}
   const cols=shownAreas.length;
   const gap=6,innerX=x+10,innerW=w-20;
@@ -4672,21 +4677,60 @@ function buildProjectPdf(allowDraft=false){
    const summary=lens.map(v=>num(v)).join('+');
    txt(a,cx+3,bottom+14,5.5,summary.slice(0,Math.max(12,Math.floor(colW/3.3))),C.muted);
   });
-  if(count>4)txt(a,x+10,bottom+4,5.5,'Dalsi plochy v mistnosti: '+(count-4)+' (zahrnuty do souctu).',C.muted);
+  if(partCount>1)txt(a,x+10,bottom+4,5.5,'MISTNOST '+room.name+' - CAST '+(partIndex+1)+' Z '+partCount,C.muted);
  }
  const orderedRooms=roomGroups();
  // Stejny klic mistnosti jako v seznamu zajisti spravne seskupeni i u starsich projektu bez roomId.
  const orderedAreas=orderedRooms.flatMap(r=>areas.filter(ar=>roomKey(ar)===r.id&&ar.closed&&Array.isArray(ar.pts)&&ar.pts.length>=3).map(ar=>({ar,room:r})));
- const roomCards=orderedRooms.map(room=>({room,roomAreas:areas.filter(ar=>roomKey(ar)===room.id)}));
- const perPage=3,diagramPages=Math.max(1,Math.ceil(roomCards.length/perPage));
+ // V ramci jedne karty max. 4 plochy kvuli citelnym kotam.
+ // Jedna bezna mistnost = 1 karta; dve bezne mistnosti = jedna A4.
+ // Velka mistnost 5-8 ploch = 2 karty, ale OBE na jedne samostatne A4.
+ // Vetsi mistnosti pokracuji na dalsich strankach, bez primichani jine mistnosti.
+ const maxAreasPerCard=4;
+ const roomCards=[];
+ const roomCardGroups=[];
+ for(const room of orderedRooms){
+  const allRoomAreas=included.filter(ar=>roomKey(ar)===room.id);
+  const partCount=Math.max(1,Math.ceil(allRoomAreas.length/maxAreasPerCard));
+  const cards=[];
+  for(let partIndex=0;partIndex<partCount;partIndex++){
+   const offset=partIndex*maxAreasPerCard;
+   const card={room,roomAreas:allRoomAreas.slice(offset,offset+maxAreasPerCard),allRoomAreas,partIndex,partCount,offset};
+   cards.push(card);
+   roomCards.push(card);
+  }
+  roomCardGroups.push(cards);
+ }
+ // Ochrana pred tichym vynechanim nebo zdvojenim ploch v PDF.
+ const scheduledIds=roomCards.flatMap(card=>card.roomAreas.map(ar=>ar.id));
+ if(scheduledIds.length!==included.length||new Set(scheduledIds).size!==included.length||included.some(ar=>!scheduledIds.includes(ar.id)))
+  throw new Error('PDF: ne vsechny plochy byly zarazeny do vykresu.');
+ // Rozvrh po STRANKACH, ne po jednotlivych kartach: casti teze mistnosti
+ // se nikdy neroztrhnou jen kvuli jine mistnosti na teze A4.
+ const diagramPageCards=[];
+ let waitingCard=null;
+ for(const group of roomCardGroups){
+  if(group.length===1){
+   if(waitingCard){diagramPageCards.push([waitingCard,group[0]]);waitingCard=null;}
+   else waitingCard=group[0];
+  }else{
+   if(waitingCard){diagramPageCards.push([waitingCard]);waitingCard=null;}
+   for(let j=0;j<group.length;j+=2)diagramPageCards.push(group.slice(j,j+2));
+  }
+ }
+ if(waitingCard)diagramPageCards.push([waitingCard]);
+ const diagramPages=Math.max(1,diagramPageCards.length);
  const extraReportRows=orderedAreas.flatMap(({ar})=>(ar.extraMeasurements||[]).map((m,i)=>({ar,m,i,r:calcExtraMeasurement(m,ar.pts,ar.closed,ar.extraMeasurements||[])}))).filter(x=>x.r.ok);
  const extraPerPage=35,extraPages=Math.ceil(extraReportRows.length/extraPerPage);
  const totalPages=diagramPages+extraPages;
  for(let pg=0;pg<diagramPages;pg++){
   const a=page();header(a,pg+1,totalPages);
-  const items=roomCards.slice(pg*perPage,(pg+1)*perPage);
-  const top=H-90,cardH=215,gap=10;
-  items.forEach((item,j)=>drawRoomCard(a,item.room,item.roomAreas,30,top-j*(cardH+gap),535,cardH));
+  const items=diagramPageCards[pg]||[];
+  const top=H-90;
+  // Jedina mistnost / karta dostane plnou vysku stranky. Jsou-li dve
+  // karty, maji obe vyssi prostor nez drivejsi 3karetni rozlozeni.
+  const cardH=items.length===1?650:315,gap=15;
+  items.forEach((item,j)=>drawRoomCard(a,item.room,item.roomAreas,30,top-j*(cardH+gap),535,cardH,item));
   if(!items.length)txt(a,40,H-130,10,'Projekt zatim neobsahuje zadne dokoncene mistnosti.',C.muted);
  }
  for(let p=0;p<extraPages;p++){
