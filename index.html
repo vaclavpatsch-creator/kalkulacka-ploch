@@ -2,7 +2,7 @@
 <html lang="cs">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kalkulačka – verze 1.2.151</title>
+<title>Kalkulačka – verze 1.2.152</title>
 <style>
 :root{font-family:Arial,Helvetica,sans-serif;color:#172033;background:#f3f6fa}
 *{box-sizing:border-box}body{margin:0;padding:16px}main{max-width:1100px;margin:auto}
@@ -493,7 +493,7 @@ table th{background:#edf3f8;color:#254761}
 </style>
 </head>
 <body><main>
-<div class="brandbar"><div class="brandmark"><span></span><span></span><span></span><span></span></div><div><div class="brand-kicker">STAVEBNÍ MĚŘENÍ A VÝMĚRY</div><h1>Kalkulačka</h1><div class="brand-subtitle">Kreslení půdorysů · pevné kóty · výpočet ploch · export projektu</div></div><div class="brand-version">VERZE 1.2.151</div>
+<div class="brandbar"><div class="brandmark"><span></span><span></span><span></span><span></span></div><div><div class="brand-kicker">STAVEBNÍ MĚŘENÍ A VÝMĚRY</div><h1>Kalkulačka</h1><div class="brand-subtitle">Kreslení půdorysů · pevné kóty · výpočet ploch · export projektu</div></div><div class="brand-version">VERZE 1.2.152</div>
 <div class="brand-nav" role="tablist" aria-label="Výběr kalkulačky">
   <button type="button" class="brand-nav-button active" id="navDrawing" data-page="drawingPage" role="tab" aria-selected="true">▦ Kreslení a výpočty</button>
 </div></div>
@@ -630,7 +630,7 @@ Podklad:
   <label style="display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #d5e1eb;border-radius:8px;background:#f4f7fb;font-weight:700">Místnost <select id="roomSelect" aria-label="Vybrat místnost" style="padding:8px;border:1px solid #bdc9d8;border-radius:6px"></select></label>
   <input id="roomNameInput" type="text" value="2.01" maxlength="40" aria-label="Číslo nebo název místnosti" title="Číslo nebo název místnosti" style="width:115px;padding:8px;border:1px solid #bdc9d8;border-radius:6px;font:inherit;background:#fff">
   <button type="button" id="renameRoomBtn" class="secondary">Opravit místnost</button>
-  <input id="newRoomNameInput" type="text" maxlength="40" placeholder="Číslo nové místnosti" aria-label="Číslo nové místnosti" style="width:140px;padding:8px;border:1px solid #bdc9d8;border-radius:6px">
+  <input id="newRoomNameInput" type="text" maxlength="40" placeholder="Číslo (volitelné)" aria-label="Číslo nové místnosti" style="width:140px;padding:8px;border:1px solid #bdc9d8;border-radius:6px">
   <button type="button" id="addRoomBtn">＋ Nová místnost</button>
   <select id="areaSelect" style="min-width:190px;padding:10px;border:1px solid #bdc9d8;border-radius:8px"></select>
   <button id="addAreaBtn">＋ Přidat měření plochy</button>
@@ -664,6 +664,7 @@ Podklad:
   <p class="small muted" style="margin:5px 0 9px">Každá nově přidaná a uzavřená plocha má vlastní řádek, i když je ve stejné místnosti. Délky se nikdy nespojují mezi plochami.</p>
   <p class="small muted" style="margin:6px 0">Text v uvozovkách můžeš upravit samostatně u každé plochy. Potvrď Enter nebo tlačítkem Uložit název. Délky stran jsou neměnné.</p>
   <p class="small" style="margin:6px 0;color:#8a5410">Uzavřená plocha se zobrazí vždy, i pokud je pouze skicou. <b>Ověřený export</b> vyžaduje skutečné měření. <b>Orientační export</b> slouží jen jako pracovní podklad a vyžaduje samostatné potvrzení. Pokud pevná kóta neodpovídá obrysu, orientační export je také zablokován.</p>
+  <div id="roomExportAudit" class="small" role="status" aria-live="polite" style="margin:8px 0;padding:8px 10px;background:#eef5f8;border-radius:7px"></div>
   <div id="krosEditableRows" aria-label="Výkaz KROS – editace označení přímo v řádku" style="display:grid;gap:8px;margin:10px 0">
     <div class="small muted">Zatím žádná uzavřená místnost.</div>
   </div>
@@ -3312,10 +3313,29 @@ function addArea(){
 }
 
 
+function suggestedNewRoomName(){
+ const names=new Set(roomGroups().map(r=>String(r.name).trim().toLocaleLowerCase('cs-CZ')));
+ const current=String(areas.find(a=>a.id===activeAreaId)?.roomName||'').trim();
+ const match=current.match(/^(.*?)(\d+)$/);
+ if(match){
+  const prefix=match[1],digits=match[2],width=digits.length;
+  for(let n=Number(digits)+1;n<10000;n++){
+   const candidate=prefix+String(n).padStart(width,'0');
+   if(!names.has(candidate.toLocaleLowerCase('cs-CZ')))return candidate;
+  }
+ }
+ for(let n=1;n<10000;n++)if(!names.has(String(n)))return String(n);
+ return 'Nová místnost';
+}
 function addRoom(){
- captureActiveArea();const name=String($('newRoomNameInput').value||'').trim().slice(0,40);
- if(!name){$('projectStatus').textContent='Zadej číslo nebo název nové místnosti.';return;}
- if(roomGroups().some(r=>r.name.toLocaleLowerCase('cs-CZ')===name.toLocaleLowerCase('cs-CZ'))){$('projectStatus').textContent='Místnost s tímto označením už existuje.';return;}
+ captureActiveArea();
+ const proposed=String($('newRoomNameInput').value||'').trim().slice(0,40);
+ const name=proposed||suggestedNewRoomName();
+ if(roomGroups().some(r=>r.name.toLocaleLowerCase('cs-CZ')===name.toLocaleLowerCase('cs-CZ'))){
+  $('newRoomNameInput').value=suggestedNewRoomName();
+  $('projectStatus').textContent='Označení „'+name+'“ už existuje; je připravené další volné číslo. Klikni znovu na Nová místnost.';
+  return;
+ }
  const roomId='room-'+Date.now()+'-'+Math.floor(Math.random()*10000);
  const area={id:'area-'+Date.now()+'-'+Math.floor(Math.random()*10000),name:'Plocha 1',roomId,roomName:name,pts:[],closed:false,desiredLengths:[],measuredDiagonals:[null,null],extraMeasurements:[],rectangleMode:false,trapezoidMode:false,orthogonalMode:false,centerOffset:null,color:'#75aee8'};
  areas.push(area);activeAreaId=area.id;$('newRoomNameInput').value='';restoreArea(area);renderAreaSelect();autoSave();commitHistory();$('projectStatus').textContent='Nová místnost byla založena. Nyní do ní můžeš přidávat plochy.';
@@ -3456,6 +3476,27 @@ function prepareSideLengthsExport(previewMode=false){
 }
 function showSideLengthsPreview(lines){
  const rows=prepareSideLengthsRows(true);
+ const audit=$('roomExportAudit');
+ if(audit){
+  const groups=roomGroups();
+  const details=groups.map(r=>{
+   const list=areas.filter(a=>roomKey(a)===r.id);
+   const ready=list.filter(a=>a.closed&&a.pts?.length>=3&&validateClosedArea(a).ok);
+   const pending=list.length-ready.length;
+   const issue=list.filter(a=>a.closed&&a.pts?.length>=3&&!validateClosedArea(a).ok);
+   return {name:r.name,ready:ready.length,pending,issue:issue.length};
+  });
+  audit.replaceChildren();
+  const heading=document.createElement('strong');
+  heading.textContent='Kontrola místností ve výkazu: '+details.length+' místností, '+details.reduce((n,r)=>n+r.ready,0)+' hotových ploch';
+  audit.appendChild(heading);
+  for(const d of details){
+   const el=document.createElement('div');
+   el.textContent='Místnost '+d.name+': '+(d.ready?d.ready+' plocha/plochy ve výkazu':'zatím bez dokončeného půdorysu')+(d.pending?' · '+d.pending+' nedokončených nebo neplatných ploch':'')+(d.issue?' · zkontroluj geometrii':'');
+   el.style.color=d.pending?'#854d0e':'#17643a';
+   audit.appendChild(el);
+  }
+ }
  const verified=rows.filter(r=>r.verified).length;
  const drafts=rows.length-verified;
  const invalid=areas.filter((a,i)=>a.closed&&!validateClosedArea(a,i).ok).length;
@@ -4583,16 +4624,18 @@ function buildProjectPdf(allowDraft=false){
   const bottom=top-h;
   rect(a,x,bottom,w,h,C.white,C.line,.8);
   rect(a,x,top-4,w,4,C.teal);
-  const totalArea=roomAreas.reduce((v,ar)=>v+areaStats(ar).area,0);
-  const totalPer=roomAreas.reduce((v,ar)=>v+areaStats(ar).perimeter,0);
+  const validAreas=roomAreas.filter(ar=>ar.closed&&ar.pts?.length>=3&&validateClosedArea(ar).ok);
+  const totalArea=validAreas.reduce((v,ar)=>v+areaStats(ar).area,0);
+  const totalPer=validAreas.reduce((v,ar)=>v+areaStats(ar).perimeter,0);
   txt(a,x+12,top-20,10,'MISTNOST '+room.name,C.navy,'F2');
-  txt(a,x+w-202,top-20,7,'PLOCHA '+fmt(totalArea*(unitFactor()===100?10000:1))+' '+areaUnit,C.teal,'F2');
-  txt(a,x+12,top-34,6.7,roomAreas.length+' '+(roomAreas.length===1?'PLOCHA':'PLOCHY')+'  |  OBVOD '+num(totalPer)+' '+unit,C.muted);
+  txt(a,x+w-202,top-20,7,'PLOCHA '+(validAreas.length?fmt(totalArea*(unitFactor()===100?10000:1))+' '+areaUnit:'NEDOKONCENO'),C.teal,'F2');
+  txt(a,x+12,top-34,6.7,validAreas.length+' hotovych ploch  |  '+(validAreas.length?'OBVOD '+num(totalPer)+' '+unit:'NEDOKONCENY PUDORYS'),C.muted);
   line(a,x+10,top-42,x+w-10,top-42,C.line,.65);
   // Každý půdorys místnosti má vlastní políčko; při více plochách
   // se šířka dělí, nesčítají se jejich délky stran dohromady.
-  const count=roomAreas.length;
-  const shownAreas=roomAreas.slice(0,4);
+  const count=validAreas.length;
+  const shownAreas=validAreas.slice(0,4);
+  if(!count){txt(a,x+14,bottom+78,9,'Mistnost je v projektu, ale nema uzavrenou platnou plochu.',C.muted);return;}
   const cols=shownAreas.length;
   const gap=6,innerX=x+10,innerW=w-20;
   const colW=(innerW-(cols-1)*gap)/cols;
@@ -4634,7 +4677,7 @@ function buildProjectPdf(allowDraft=false){
  const orderedRooms=roomGroups();
  // Stejny klic mistnosti jako v seznamu zajisti spravne seskupeni i u starsich projektu bez roomId.
  const orderedAreas=orderedRooms.flatMap(r=>areas.filter(ar=>roomKey(ar)===r.id&&ar.closed&&Array.isArray(ar.pts)&&ar.pts.length>=3).map(ar=>({ar,room:r})));
- const roomCards=orderedRooms.map(room=>({room,roomAreas:areas.filter(ar=>roomKey(ar)===room.id&&ar.closed&&Array.isArray(ar.pts)&&ar.pts.length>=3)})).filter(item=>item.roomAreas.length);
+ const roomCards=orderedRooms.map(room=>({room,roomAreas:areas.filter(ar=>roomKey(ar)===room.id)}));
  const perPage=3,diagramPages=Math.max(1,Math.ceil(roomCards.length/perPage));
  const extraReportRows=orderedAreas.flatMap(({ar})=>(ar.extraMeasurements||[]).map((m,i)=>({ar,m,i,r:calcExtraMeasurement(m,ar.pts,ar.closed,ar.extraMeasurements||[])}))).filter(x=>x.r.ok);
  const extraPerPage=35,extraPages=Math.ceil(extraReportRows.length/extraPerPage);
